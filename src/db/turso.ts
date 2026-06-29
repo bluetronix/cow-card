@@ -172,4 +172,69 @@ function formatError(msg: string): string {
   return msg
 }
 
+export async function fetchCowById(id: string): Promise<Cow | null> {
+  if (!isConnected()) return null
+  try {
+    const result = await turso!.execute({
+      sql: 'SELECT * FROM cows WHERE id = ?',
+      args: [id]
+    })
+    if (result.rows.length === 0) return null
+    const r = result.rows[0] as any
+    return {
+      id: String(r.id || ''),
+      user_id: String(r.user_id || ''),
+      id_no: String(r.id_no || ''),
+      tag: String(r.tag || ''),
+      collar_no: String(r.collar_no || ''),
+      rfid_no: String(r.rfid_no || ''),
+      name: String(r.name || ''),
+      sex: (String(r.sex || '') as 'Male' | 'Female' | ''),
+      breed: String(r.breed || ''),
+      colour: String(r.colour || ''),
+      origin: String(r.origin || ''),
+      birth_date: String(r.birth_date || ''),
+      group_name: String(r.group_name || ''),
+      dam_id: String(r.dam_id || ''),
+      bull_name: String(r.bull_name || ''),
+      lactations: Number(r.lactations ?? 0),
+      calving_date: String(r.calving_date || ''),
+      pd_date: String(r.pd_date || ''),
+      pd_group: String(r.pd_group || ''),
+      pregnancy_result: (String(r.pregnancy_result || '') as 'Pregnant' | 'Open' | ''),
+      ai_service_date: String(r.ai_service_date || ''),
+      expected_dry_off_date: String(r.expected_dry_off_date || ''),
+      expected_calving_date: String(r.expected_calving_date || ''),
+      days_in_milk: Number(r.days_in_milk ?? 0),
+      peak_milk_yield: Number(r.peak_milk_yield ?? 0),
+      current_daily_milk_yield: Number(r.current_daily_milk_yield ?? 0),
+      total_lactation_yield: Number(r.total_lactation_yield ?? 0),
+      fat_percent: Number(r.fat_percent ?? 0),
+      protein_percent: Number(r.protein_percent ?? 0),
+      projected_305d_milk_yield: Number(r.projected_305d_milk_yield ?? 0),
+      vaccinations: String(r.vaccinations || ''),
+      deworming_dates: String(r.deworming_dates || ''),
+      mastitis_history: String(r.mastitis_history || ''),
+      body_condition_score: Number(r.body_condition_score ?? 0),
+      dead_qtr_teat: String(r.dead_qtr_teat || ''),
+      quarter_teat_status: String(r.quarter_teat_status || ''),
+      medical_records: String(r.medical_records || ''),
+      feeding_group: String(r.feeding_group || ''),
+      milking_group: String(r.milking_group || ''),
+      pen_barn_no: String(r.pen_barn_no || ''),
+      housing: String(r.housing || ''),
+      remarks: String(r.remarks || ''),
+      issued_date: String(r.issued_date || ''),
+      issued_by: String(r.issued_by || ''),
+      image_url: String(r.image_url || ''),
+      created_at: String(r.created_at || ''),
+      updated_at: String(r.updated_at || ''),
+      synced: 1,
+    } as Cow
+  } catch (e: any) {
+    console.error('[fetchCowById] error:', e?.message || e)
+    return null
+  }
+}
+
 export { isConnected }

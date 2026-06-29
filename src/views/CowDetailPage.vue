@@ -3,6 +3,7 @@ import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuth } from '../stores/auth'
 import { db } from '../db/dexie'
+import { fetchCowById } from '../db/turso'
 import { generateSummaryCard, generateDetailedCard, downloadPdf } from '../utils/pdf'
 import { calculateAge, formatDate } from '../utils/age'
 import type { Cow } from '../types'
@@ -18,6 +19,9 @@ onMounted(async () => {
   authenticated.value = isLoggedIn()
   const id = route.params.id as string
   cow.value = (await db.cows.get(id)) || null
+  if (!cow.value) {
+    cow.value = await fetchCowById(id)
+  }
   loading.value = false
 })
 
