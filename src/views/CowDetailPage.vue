@@ -72,6 +72,7 @@ function downloadDetailed() {
           <div><strong>ID No:</strong> {{ cow.id_no }}</div>
           <div><strong>Tag:</strong> {{ cow.tag }}</div>
           <div><strong>Collar No:</strong> {{ cow.collar_no || '—' }}</div>
+          <div><strong>RFID No:</strong> {{ cow.rfid_no || '—' }}</div>
           <div><strong>Name:</strong> {{ cow.name || '—' }}</div>
           <div><strong>Breed:</strong> {{ cow.breed }}</div>
           <div><strong>Sex:</strong> {{ cow.sex || '—' }}</div>
@@ -90,7 +91,9 @@ function downloadDetailed() {
           <div><strong>Lactations:</strong> {{ cow.lactations ?? '—' }}</div>
           <div><strong>Calving Date:</strong> {{ formatDate(cow.calving_date) || '—' }}</div>
           <div><strong>PD Date:</strong> {{ formatDate(cow.pd_date) || '—' }}</div>
+          <div><strong>PD Group:</strong> {{ cow.pd_group || '—' }}</div>
           <div><strong>Pregnancy:</strong> {{ cow.pregnancy_result || '—' }}</div>
+          <div><strong>AI/Service Date:</strong> {{ formatDate(cow.ai_service_date) || '—' }}</div>
           <div><strong>Dry-off:</strong> {{ formatDate(cow.expected_dry_off_date) || '—' }}</div>
           <div><strong>Expected Calving:</strong> {{ formatDate(cow.expected_calving_date) || '—' }}</div>
         </div>
@@ -103,6 +106,21 @@ function downloadDetailed() {
           <div><strong>Peak Yield:</strong> {{ cow.peak_milk_yield ? `${cow.peak_milk_yield} L` : '—' }}</div>
           <div><strong>Current Daily:</strong> {{ cow.current_daily_milk_yield ? `${cow.current_daily_milk_yield} L` : '—' }}</div>
           <div><strong>Total Lactation:</strong> {{ cow.total_lactation_yield ? `${cow.total_lactation_yield} L` : '—' }}</div>
+          <div><strong>Fat %:</strong> {{ cow.fat_percent ? `${cow.fat_percent} %` : '—' }}</div>
+          <div><strong>Protein %:</strong> {{ cow.protein_percent ? `${cow.protein_percent} %` : '—' }}</div>
+          <div class="full-width"><strong>305-Day Projected:</strong> {{ cow.projected_305d_milk_yield ? `${cow.projected_305d_milk_yield} L` : '—' }}</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Management</h3>
+        <div class="info-grid">
+          <div><strong>Feeding Group:</strong> {{ cow.feeding_group || '—' }}</div>
+          <div><strong>Milking Group:</strong> {{ cow.milking_group || '—' }}</div>
+          <div><strong>Pen / Barn No:</strong> {{ cow.pen_barn_no || '—' }}</div>
+          <div><strong>Housing:</strong> {{ cow.housing || '—' }}</div>
+          <div><strong>BCS:</strong> {{ cow.body_condition_score ?? '—' }}</div>
+          <div class="full-width"><strong>Remarks:</strong> {{ cow.remarks || '—' }}</div>
         </div>
       </div>
 
@@ -113,6 +131,7 @@ function downloadDetailed() {
           <div class="full-width"><strong>Deworming:</strong> {{ cow.deworming_dates || 'None' }}</div>
           <div class="full-width"><strong>Mastitis History:</strong> {{ cow.mastitis_history || 'None' }}</div>
           <div><strong>Dead Qtr-Teat:</strong> {{ cow.dead_qtr_teat || '—' }}</div>
+          <div><strong>Quarter/Teat Status:</strong> {{ cow.quarter_teat_status || '—' }}</div>
           <div><strong>BCS:</strong> {{ cow.body_condition_score ?? '—' }}</div>
         </div>
       </div>

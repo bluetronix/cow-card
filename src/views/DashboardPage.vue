@@ -2,13 +2,15 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuth } from '../stores/auth'
-import { getPendingCount, syncPendingRecords } from '../utils/sync'
+import { getPendingCount, syncPendingRecords, pullFromTurso } from '../utils/sync'
 
 const router = useRouter()
 const { currentUser, fullName, logout } = useAuth()
 const pendingCount = ref(0)
 const syncing = ref(false)
+const pulling = ref(false)
 const syncResult = ref('')
+const pullResult = ref('')
 
 const allSynced = computed(() => pendingCount.value === 0 && syncResult.value === '')
 
@@ -40,6 +42,21 @@ async function handleSync() {
     syncResult.value = 'Sync failed'
   } finally {
     syncing.value = false
+  }
+}
+
+async function handlePull() {
+  pulling.value = true
+  pullResult.value = ''
+  try {
+    const res = await pullFromTurso()
+    console.log('[handlePull] result:', res)
+    pullResult.value = `Imported: ${res.cows} cows, ${res.daily} records`
+  } catch (e) {
+    console.error('[handlePull] error:', e)
+    pullResult.value = 'Import failed'
+  } finally {
+    pulling.value = false
   }
 }
 
@@ -109,17 +126,25 @@ const tiles = [
         <div class="tile-body">
           <p>{{ tile.description }}</p>
           <div v-if="tile.action === 'sync'" class="sync-actions">
-            <span v-if="pendingCount > 0" class="sync-count">{{ pendingCount }} pending</span>
-            <button
-              v-if="pendingCount > 0"
-              class="sync-now-btn"
-              :disabled="syncing"
-              @click.stop="handleSync()"
-            >
-              {{ syncing ? 'Syncing...' : 'Sync Now' }}
-            </button>
-            <span v-if="syncResult" class="sync-result">{{ syncResult }}</span>
-            <span v-if="allSynced" class="sync-ok">All synced</span>
+            <div class="sync-row">
+              <span v-if="pendingCount > 0" class="sync-count">{{ pendingCount }} pending</span>
+              <button
+                v-if="pendingCount > 0"
+                class="sync-now-btn"
+                :disabled="syncing"
+                @click.stop="handleSync()"
+              >
+                {{ syncing ? 'Syncing...' : 'Sync Now' }}
+              </button>
+              <span v-if="syncResult" class="sync-result">{{ syncResult }}</span>
+              <span v-if="allSynced" class="sync-ok">All synced</span>
+            </div>
+            <div class="sync-row">
+              <button class="pull-btn" :disabled="pulling" @click.stop="handlePull()">
+                {{ pulling ? 'Pulling...' : 'Pull from Cloud' }}
+              </button>
+              <span v-if="pullResult" class="pull-result">{{ pullResult }}</span>
+            </div>
           </div>
         </div>
       </div>
@@ -244,5 +269,31 @@ const tiles = [
 }
 .tile-sync {
   cursor: default;
+}
+.sync-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  width: 100%;
+}
+.pull-btn {
+  padding: 8px 16px;
+  background: #1a5276;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.pull-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.pull-result {
+  color: #1a5276;
+  font-weight: 600;
+  font-size: 0.8rem;
 }
 </style>
