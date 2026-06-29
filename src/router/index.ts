@@ -30,8 +30,7 @@ const router = createRouter({
     {
       path: '/cows/:id',
       name: 'CowDetail',
-      component: () => import('../views/CowDetailPage.vue'),
-      meta: { requiresAuth: true }
+      component: () => import('../views/CowDetailPage.vue')
     },
     {
       path: '/cows/:id/edit',
