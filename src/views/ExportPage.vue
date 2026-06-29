@@ -1,17 +1,18 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { db } from '../db/dexie'
 import { generateSummaryCard, generateDetailedCard, downloadPdf } from '../utils/pdf'
 import { exportCowSummaryCSV, exportCowDetailedCSV, exportDailyRecordsCSV } from '../utils/csv'
+import { calculateAge } from '../utils/age'
 import type { Cow, DailyRecord } from '../types'
 
 const router = useRouter()
 const cows = ref<Cow[]>([])
 const allDailyRecords = ref<DailyRecord[]>([])
-const dateFrom = ref('')
-const dateTo = ref('')
-const selectedCow = ref('')
+const search = ref('')
+const selectedCow = ref<Cow | null>(null)
+const dailyRecords = ref<DailyRecord[]>([])
 const message = ref('')
 
 onMounted(async () => {
@@ -19,82 +20,61 @@ onMounted(async () => {
   allDailyRecords.value = await db.dailyRecords.toArray()
 })
 
-function filteredCows(): Cow[] {
-  let result = cows.value
-  if (selectedCow.value) {
-    result = result.filter(c => c.id === selectedCow.value || c.id_no?.includes(selectedCow.value))
-  }
-  return result
+const filtered = computed(() => {
+  const q = search.value.toLowerCase().trim()
+  if (!q) return cows.value
+  return cows.value.filter(c =>
+    c.id_no?.toLowerCase().includes(q) ||
+    c.tag?.toLowerCase().includes(q) ||
+    c.name?.toLowerCase().includes(q) ||
+    c.rfid_no?.toLowerCase().includes(q) ||
+    c.collar_no?.toLowerCase().includes(q)
+  )
+})
+
+function selectCow(cow: Cow) {
+  selectedCow.value = cow
+  dailyRecords.value = allDailyRecords.value.filter(r => r.cow_id === cow.id)
+  message.value = ''
 }
 
-function filteredDailyRecords(): DailyRecord[] {
-  let result = allDailyRecords.value
-  if (dateFrom.value) {
-    result = result.filter(r => r.date >= dateFrom.value)
-  }
-  if (dateTo.value) {
-    result = result.filter(r => r.date <= dateTo.value)
-  }
-  if (selectedCow.value) {
-    result = result.filter(r => r.cow_id === selectedCow.value)
-  }
-  return result
+function clearSelection() {
+  selectedCow.value = null
+  dailyRecords.value = []
 }
 
-function downloadSummaryPDF() {
-  const selected = filteredCows()
-  if (selected.length === 0) {
-    message.value = 'No cows match the filter'
-    return
-  }
-  for (const cow of selected) {
-    const doc = generateSummaryCard(cow)
-    downloadPdf(doc, `cow_summary_${cow.id_no || cow.id}.pdf`)
-  }
-  message.value = `Downloaded ${selected.length} summary PDF(s)`
+async function downloadSummaryPDF() {
+  if (!selectedCow.value) return
+  const doc = await generateSummaryCard(selectedCow.value)
+  downloadPdf(doc, `cow_summary_${selectedCow.value.id_no || selectedCow.value.id}.pdf`)
+  message.value = 'Summary PDF downloaded'
 }
 
-function downloadDetailedPDF() {
-  const selected = filteredCows()
-  if (selected.length === 0) {
-    message.value = 'No cows match the filter'
-    return
-  }
-  for (const cow of selected) {
-    const records = allDailyRecords.value.filter(r => r.cow_id === cow.id)
-    const doc = generateDetailedCard(cow, records)
-    downloadPdf(doc, `cow_detailed_${cow.id_no || cow.id}.pdf`)
-  }
-  message.value = `Downloaded ${selected.length} detailed PDF(s)`
+async function downloadDetailedPDF() {
+  if (!selectedCow.value) return
+  const doc = await generateDetailedCard(selectedCow.value, dailyRecords.value)
+  downloadPdf(doc, `cow_detailed_${selectedCow.value.id_no || selectedCow.value.id}.pdf`)
+  message.value = 'Detailed PDF downloaded'
 }
 
 function downloadSummaryCSV() {
-  const selected = filteredCows()
-  if (selected.length === 0) {
-    message.value = 'No cows match the filter'
-    return
-  }
-  exportCowSummaryCSV(selected)
+  if (!selectedCow.value) return
+  exportCowSummaryCSV([selectedCow.value])
   message.value = 'Summary CSV downloaded'
 }
 
 function downloadDetailedCSV() {
-  const selected = filteredCows()
-  if (selected.length === 0) {
-    message.value = 'No cows match the filter'
-    return
-  }
-  exportCowDetailedCSV(selected)
+  if (!selectedCow.value) return
+  exportCowDetailedCSV([selectedCow.value])
   message.value = 'Detailed CSV downloaded'
 }
 
 function downloadDailyCSV() {
-  const selected = filteredDailyRecords()
-  if (selected.length === 0) {
-    message.value = 'No daily records match the filter'
+  if (dailyRecords.value.length === 0) {
+    message.value = 'No daily records for this cow'
     return
   }
-  exportDailyRecordsCSV(selected)
+  exportDailyRecordsCSV(dailyRecords.value)
   message.value = 'Daily records CSV downloaded'
 }
 
@@ -140,49 +120,126 @@ async function importJSON(event: Event) {
     <header class="page-header">
       <div>
         <button class="btn-back" @click="router.push('/')">← Dashboard</button>
-        <h1>Exports</h1>
+        <h1>Search &amp; Export</h1>
       </div>
     </header>
 
     <div class="export-content">
-      <div class="card filter-card">
-        <h3>🔍 Filters</h3>
-        <div class="filter-grid">
-          <div class="form-group">
-            <label>Cow ID / Tag</label>
-            <input v-model="selectedCow" type="text" placeholder="All cows" />
+      <!-- Search -->
+      <div class="card">
+        <div class="search-wrapper">
+          <span class="search-icon">🔍</span>
+          <input
+            v-model="search"
+            class="search-input"
+            type="text"
+            placeholder="Search by ID No, Tag, Name, RFID, Collar..."
+          />
+          <span v-if="search" class="search-count">{{ filtered.length }} result(s)</span>
+        </div>
+      </div>
+
+      <!-- Results list + Detail -->
+      <div class="flex-layout">
+        <div class="results-panel">
+          <div
+            v-for="cow in filtered"
+            :key="cow.id"
+            class="cow-row"
+            :class="{ active: selectedCow?.id === cow.id }"
+            @click="selectCow(cow)"
+          >
+            <div class="cow-row-main">
+              <strong>{{ cow.id_no || '—' }}</strong>
+              <span class="cow-row-name">{{ cow.name || 'Unnamed' }}</span>
+            </div>
+            <div class="cow-row-meta">
+              <span>{{ cow.tag || '—' }}</span>
+              <span>{{ cow.sex || '—' }}</span>
+              <span>{{ cow.breed || '—' }}</span>
+            </div>
           </div>
-          <div class="form-group">
-            <label>Date From</label>
-            <input v-model="dateFrom" type="date" />
+          <div v-if="filtered.length === 0" class="empty-state">
+            No cows found
           </div>
-          <div class="form-group">
-            <label>Date To</label>
-            <input v-model="dateTo" type="date" />
+        </div>
+
+        <!-- Detail Panel -->
+        <div v-if="selectedCow" class="detail-panel">
+          <div class="detail-header-bar">
+            <h2>Cow {{ selectedCow.id_no || selectedCow.id }}</h2>
+            <button class="btn-close" @click="clearSelection">✕</button>
+          </div>
+
+          <div class="detail-body">
+            <div class="info-blocks">
+              <div class="info-block">
+                <label>Name</label>
+                <span>{{ selectedCow.name || '—' }}</span>
+              </div>
+              <div class="info-block">
+                <label>Tag</label>
+                <span>{{ selectedCow.tag || '—' }}</span>
+              </div>
+              <div class="info-block">
+                <label>RFID No</label>
+                <span>{{ selectedCow.rfid_no || '—' }}</span>
+              </div>
+              <div class="info-block">
+                <label>Collar No</label>
+                <span>{{ selectedCow.collar_no || '—' }}</span>
+              </div>
+              <div class="info-block">
+                <label>Breed</label>
+                <span>{{ selectedCow.breed || '—' }}</span>
+              </div>
+              <div class="info-block">
+                <label>Sex</label>
+                <span>{{ selectedCow.sex || '—' }}</span>
+              </div>
+              <div class="info-block">
+                <label>Age</label>
+                <span>{{ selectedCow.birth_date ? calculateAge(selectedCow.birth_date) : '—' }}</span>
+              </div>
+              <div class="info-block">
+                <label>Colour</label>
+                <span>{{ selectedCow.colour || '—' }}</span>
+              </div>
+              <div class="info-block">
+                <label>Origin</label>
+                <span>{{ selectedCow.origin || '—' }}</span>
+              </div>
+              <div class="info-block">
+                <label>Group</label>
+                <span>{{ selectedCow.group_name || '—' }}</span>
+              </div>
+            </div>
+
+            <!-- Export buttons -->
+            <div class="export-section">
+              <h3>📄 PDF</h3>
+              <div class="btn-row">
+                <button class="btn-pdf" @click="downloadSummaryPDF">Summary Card</button>
+                <button class="btn-pdf detailed" @click="downloadDetailedPDF">Detailed Card</button>
+              </div>
+            </div>
+
+            <div class="export-section">
+              <h3>📊 CSV</h3>
+              <div class="btn-row">
+                <button class="btn-csv" @click="downloadSummaryCSV">Summary</button>
+                <button class="btn-csv" @click="downloadDetailedCSV">Detailed</button>
+                <button class="btn-csv" @click="downloadDailyCSV">Daily Records ({{ dailyRecords.length }})</button>
+              </div>
+            </div>
           </div>
         </div>
       </div>
 
-      <div class="card">
-        <h3>📄 PDF — Cow Cards (Portrait)</h3>
-        <div class="btn-group">
-          <button class="btn-pdf" @click="downloadSummaryPDF">📄 Summary Card</button>
-          <button class="btn-pdf detailed" @click="downloadDetailedPDF">📄 Detailed Card</button>
-        </div>
-      </div>
-
-      <div class="card">
-        <h3>📊 CSV — Data Export</h3>
-        <div class="btn-group">
-          <button class="btn-csv" @click="downloadSummaryCSV">📊 Summary CSV</button>
-          <button class="btn-csv" @click="downloadDetailedCSV">📊 Detailed CSV</button>
-          <button class="btn-csv" @click="downloadDailyCSV">📊 Daily Records CSV</button>
-        </div>
-      </div>
-
-      <div class="card">
-        <h3>💾 Bulk Data Transfer (Offline)</h3>
-        <div class="btn-group">
+      <!-- Bulk tools -->
+      <div class="card bulk-card">
+        <h3>💾 Bulk Data Transfer</h3>
+        <div class="btn-row">
           <button class="btn-json" @click="exportAllJSON">📦 Export All as JSON</button>
           <label class="btn-json import">
             📂 Import JSON
@@ -227,7 +284,7 @@ async function importJSON(event: Event) {
 }
 
 .export-content {
-  max-width: 700px;
+  max-width: 960px;
   margin: 0 auto;
   padding: 24px 16px;
   display: flex;
@@ -242,56 +299,186 @@ async function importJSON(event: Event) {
   box-shadow: 0 1px 6px rgba(0, 0, 0, 0.06);
 }
 
-.card h3 {
-  margin: 0 0 16px;
-  color: #333;
-  font-size: 1rem;
-}
-
-.filter-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
-  gap: 12px;
-}
-
-.form-group {
+/* Search */
+.search-wrapper {
   display: flex;
-  flex-direction: column;
-  gap: 4px;
+  align-items: center;
+  gap: 10px;
 }
 
-.form-group label {
-  font-size: 0.8rem;
-  font-weight: 600;
-  color: #555;
-  text-transform: uppercase;
+.search-icon {
+  font-size: 1.2rem;
 }
 
-.form-group input {
-  padding: 8px 10px;
+.search-input {
+  flex: 1;
+  padding: 10px 14px;
   border: 2px solid #e0e0e0;
-  border-radius: 6px;
-  font-size: 0.9rem;
+  border-radius: 8px;
+  font-size: 1rem;
+  transition: border-color 0.2s;
 }
 
-.form-group input:focus {
+.search-input:focus {
   border-color: #1a5276;
   outline: none;
 }
 
-.btn-group {
+.search-count {
+  font-size: 0.8rem;
+  color: #999;
+  white-space: nowrap;
+}
+
+/* Flex layout */
+.flex-layout {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+}
+
+.results-panel {
+  flex: 1;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.06);
+  max-height: 600px;
+  overflow-y: auto;
+}
+
+.cow-row {
+  padding: 12px 16px;
+  border-bottom: 1px solid #f0f0f0;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.cow-row:hover {
+  background: #f5f8ff;
+}
+
+.cow-row.active {
+  background: #e8f0fe;
+  border-left: 3px solid #1a5276;
+}
+
+.cow-row-main {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.cow-row-main strong {
+  font-size: 0.95rem;
+  color: #1a5276;
+}
+
+.cow-row-name {
+  font-size: 0.85rem;
+  color: #666;
+}
+
+.cow-row-meta {
+  display: flex;
+  gap: 12px;
+  margin-top: 4px;
+  font-size: 0.78rem;
+  color: #999;
+}
+
+.empty-state {
+  padding: 40px;
+  text-align: center;
+  color: #999;
+  font-size: 0.9rem;
+}
+
+/* Detail Panel */
+.detail-panel {
+  width: 420px;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.06);
+  flex-shrink: 0;
+}
+
+.detail-header-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.detail-header-bar h2 {
+  margin: 0;
+  font-size: 1rem;
+  color: #333;
+}
+
+.btn-close {
+  background: none;
+  border: none;
+  font-size: 1.2rem;
+  color: #999;
+  cursor: pointer;
+  padding: 4px;
+  line-height: 1;
+}
+
+.btn-close:hover {
+  color: #333;
+}
+
+.detail-body {
+  padding: 16px 20px;
+}
+
+.info-blocks {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.info-block label {
+  display: block;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #888;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  margin-bottom: 2px;
+}
+
+.info-block span {
+  font-size: 0.9rem;
+  color: #333;
+}
+
+.export-section {
+  margin-bottom: 16px;
+}
+
+.export-section h3 {
+  margin: 0 0 8px;
+  font-size: 0.85rem;
+  color: #555;
+}
+
+.btn-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 8px;
 }
 
 .btn-pdf,
 .btn-csv,
 .btn-json {
-  padding: 10px 20px;
+  padding: 8px 16px;
   border: none;
   border-radius: 8px;
-  font-size: 0.9rem;
+  font-size: 0.82rem;
   font-weight: 600;
   cursor: pointer;
   transition: opacity 0.2s;
@@ -328,6 +515,12 @@ async function importJSON(event: Event) {
 .btn-csv:hover,
 .btn-json:hover {
   opacity: 0.9;
+}
+
+.bulk-card h3 {
+  margin: 0 0 12px;
+  font-size: 1rem;
+  color: #333;
 }
 
 .message {
