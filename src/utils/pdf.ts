@@ -2,105 +2,250 @@ import { jsPDF } from 'jspdf'
 import type { Cow, DailyRecord } from '../types'
 import { calculateAge, formatDate } from './age'
 
-function drawSection(
-  doc: jsPDF,
-  y: number,
-  title: string,
-  fields: [string, string][],
-  color: [number, number, number]
-): number {
-  const margin = 15
-  const pageWidth = doc.internal.pageSize.getWidth()
-  const left = margin
-  const right = pageWidth - margin
-  const lineH = 6.5
+const C_GREEN: [number, number, number] = [0, 86, 59]
+const C_BLUE: [number, number, number] = [0, 91, 159]
+const C_ORANGE: [number, number, number] = [160, 90, 44]
+const C_RED: [number, number, number] = [201, 48, 44]
 
-  doc.setFillColor(color[0], color[1], color[2])
-  doc.rect(left, y, right - left, 8, 'F')
+const M = 10
+const PW = 210
+const CW = 46
+const G = 2
+const CX = [M, M + CW + G, M + (CW + G) * 2, M + (CW + G) * 3]
+
+function drawHeader(doc: jsPDF, cow: Cow): void {
+  doc.setFillColor(C_GREEN[0], C_GREEN[1], C_GREEN[2])
+  doc.rect(0, 0, PW, 28, 'F')
+
   doc.setTextColor(255, 255, 255)
-  doc.setFontSize(10)
   doc.setFont('helvetica', 'bold')
-  doc.text(title, left + 2, y + 6)
-  doc.setTextColor(0, 0, 0)
+  doc.setFontSize(16)
+  doc.text('BASHE DAIRY FARM', M, 13)
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(8)
+  doc.text('Healthy Cows, Quality Milk, Better Future', M, 21)
 
-  let cy = y + 11
-  const colW = (right - left - 4) / 2
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(28)
+  doc.text('COW CARD', PW / 2, 19, { align: 'center' })
+
+  doc.setFillColor(180, 180, 180)
+  doc.rect(PW - M - 44, 6, 14, 16, 'F')
+  doc.setTextColor(100, 100, 100)
+  doc.setFontSize(5)
+  doc.setFont('helvetica', 'normal')
+  doc.text('QR', PW - M - 37, 14.5, { align: 'center' })
+
+  const boxX = PW - M - 44 - 8 - 46
+  doc.setFillColor(255, 255, 255)
+  doc.rect(boxX, 4, 46, 20, 'F')
+  doc.setTextColor(C_GREEN[0], C_GREEN[1], C_GREEN[2])
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(7)
+  doc.text('ANIMAL ID (BDF)', boxX + 23, 10, { align: 'center' })
+  doc.setFontSize(12)
+  const padded = (cow.id_no || '0001').padStart(4, '0')
+  const animalId = `BDF-${new Date().getFullYear()}-${padded}`
+  doc.text(animalId, boxX + 23, 19, { align: 'center' })
+}
+
+function drawImagePlaceholder(doc: jsPDF, x: number, y: number, w: number, h: number): void {
+  doc.setFillColor(240, 240, 240)
+  doc.rect(x + 0.3, y + 0.3, w - 0.6, h - 0.6, 'F')
+  doc.setTextColor(180, 180, 180)
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(8)
+  doc.text('COW PHOTO', x + w / 2, y + h / 2 + 2, { align: 'center' })
+}
+
+function drawModule(
+  doc: jsPDF,
+  x: number,
+  y: number,
+  w: number,
+  title: string,
+  fields: [string, string][],
+  color: [number, number, number],
+  h?: number
+): number {
+  const hh = 7
+  const lh = 4.5
+  const rows = Math.ceil(fields.length / 2)
+  const bh = h ?? (rows * lh + 4)
+  const mh = hh + bh
+
+  doc.setDrawColor(200, 200, 200)
+  doc.setLineWidth(0.3)
+  doc.rect(x, y, w, mh)
+
+  doc.setFillColor(color[0], color[1], color[2])
+  doc.rect(x + 0.3, y + 0.3, w - 0.6, hh - 0.3, 'F')
+  doc.setTextColor(255, 255, 255)
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(7)
+  doc.text(title, x + 1.5, y + 5.5)
+
+  doc.setTextColor(0, 0, 0)
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(6.5)
+
+  let cy = y + hh + 2
+  const colW = (w - 4) / 2
+
   for (let i = 0; i < fields.length; i++) {
     const col = i % 2
-    if (col === 0 && i > 0) {
-      cy += lineH
-    }
-    const x = left + 2 + col * colW
-    doc.text(`${fields[i][0]}: ${fields[i][1]}`, x, cy)
+    if (col === 0 && i > 0) cy += lh
+    const fx = x + 1.5 + col * colW
+    doc.text(`${fields[i][0]}: ${fields[i][1]}`, fx, cy)
   }
-  return cy + lineH + 3
+
+  return y + mh
+}
+
+function drawHealthModule(
+  doc: jsPDF,
+  x: number,
+  y: number,
+  w: number,
+  fields: [string, string][],
+  quarterStatus: string
+): number {
+  const hh = 7
+  const lh = 4.5
+  const rows = fields.length
+  const bh = rows * lh + 4
+  const mh = hh + bh
+
+  doc.setDrawColor(200, 200, 200)
+  doc.setLineWidth(0.3)
+  doc.rect(x, y, w, mh)
+
+  doc.setFillColor(C_RED[0], C_RED[1], C_RED[2])
+  doc.rect(x + 0.3, y + 0.3, w - 0.6, hh - 0.3, 'F')
+  doc.setTextColor(255, 255, 255)
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(7)
+  doc.text('HEALTH RECORD', x + 1.5, y + 5.5)
+
+  doc.setTextColor(0, 0, 0)
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(6.5)
+  let cy = y + hh + 2
+  for (let i = 0; i < fields.length; i++) {
+    doc.text(`${fields[i][0]}: ${fields[i][1]}`, x + 1.5, cy)
+    cy += lh
+  }
+
+  const divX = x + w * 0.55
+  doc.setDrawColor(200, 200, 200)
+  doc.line(divX, y + hh, divX, y + mh)
+
+  const rx = divX + 1.5
+  const rw = w * 0.45 - 3
+  doc.setTextColor(0, 0, 0)
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(7)
+  doc.text('QUARTER / TEAT STATUS', rx + rw / 2, y + hh + 5, { align: 'center' })
+  doc.setTextColor(0, 128, 0)
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(9)
+  doc.text(quarterStatus || 'All OK', rx + rw / 2, y + hh + 15, { align: 'center' })
+
+  return y + mh
 }
 
 export function generateSummaryCard(cow: Cow): jsPDF {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
-  const pw = doc.internal.pageSize.getWidth()
-  const margin = 15
 
-  doc.setFillColor(0, 102, 204)
-  doc.rect(0, 0, pw, 25, 'F')
-  doc.setTextColor(255, 255, 255)
-  doc.setFontSize(18)
-  doc.setFont('helvetica', 'bold')
-  doc.text('COW SUMMARY CARD', pw / 2, 16, { align: 'center' })
-  doc.setFontSize(9)
-  doc.text(`Issued: ${formatDate(cow.issued_date || new Date().toISOString())} | By: ${cow.issued_by || '—'}`, pw / 2, 22, { align: 'center' })
-
-  if (cow.image_url) {
-    try {
-      doc.addImage(cow.image_url, 'JPEG', pw - 55, 30, 40, 40)
-    } catch {}
-  }
+  drawHeader(doc, cow)
 
   let y = 33
-  y = drawSection(doc, y, 'IDENTITY', [
+  const imgH = 55
+
+  doc.setDrawColor(200, 200, 200)
+  doc.setLineWidth(0.3)
+  doc.rect(CX[0], y, CW, imgH)
+  if (cow.image_url) {
+    try {
+      doc.addImage(cow.image_url, 'JPEG', CX[0] + 0.3, y + 0.3, CW - 0.6, imgH - 0.6)
+    } catch {
+      drawImagePlaceholder(doc, CX[0], y, CW, imgH)
+    }
+  } else {
+    drawImagePlaceholder(doc, CX[0], y, CW, imgH)
+  }
+
+  const bodyH = imgH - 7
+
+  drawModule(doc, CX[1], y, CW, 'IDENTIFICATION', [
     ['ID No', cow.id_no || '—'],
-    ['Tag', cow.tag || '—'],
+    ['Tag No', cow.tag || '—'],
     ['Collar No', cow.collar_no || '—'],
-    ['Name', cow.name || '—'],
-    ['Breed', cow.breed || '—'],
-    ['Sex', cow.sex || '—'],
-    ['Colour', cow.colour || '—'],
+    ['RFID No', cow.rfid_no || '—'],
+    ['Date of Birth', formatDate(cow.birth_date) || '—'],
     ['Age', cow.birth_date ? calculateAge(cow.birth_date) : '—'],
+  ], C_GREEN, bodyH)
+
+  drawModule(doc, CX[2], y, CW, 'ANIMAL INFORMATION', [
+    ['Breed / Type', cow.breed || '—'],
+    ['Colour', cow.colour || '—'],
+    ['Sire (Bull Name)', cow.bull_name || '—'],
+    ['Dam (Mother ID)', cow.dam_id || '—'],
     ['Origin', cow.origin || '—'],
-    ['Group', cow.group_name || '—'],
-  ], [0, 102, 204])
+  ], C_GREEN, bodyH)
 
-  y = drawSection(doc, y, 'BREEDING & REPRODUCTION', [
-    ['Dam ID', cow.dam_id || '—'],
-    ['Bull Name', cow.bull_name || '—'],
-    ['Lactations', String(cow.lactations ?? '—')],
+  const reproFields: [string, string][] = [
     ['Calving Date', formatDate(cow.calving_date) || '—'],
-    ['PD Date', formatDate(cow.pd_date) || '—'],
-    ['Pregnancy', cow.pregnancy_result || '—'],
-    ['Dry-off Date', formatDate(cow.expected_dry_off_date) || '—'],
-    ['Calving (Expected)', formatDate(cow.expected_calving_date) || '—'],
-  ], [0, 153, 76])
-
-  y = drawSection(doc, y, 'MILK PRODUCTION', [
+    ['Lactation No', String(cow.lactations ?? '—')],
     ['Days in Milk', String(cow.days_in_milk ?? '—')],
-    ['Peak Yield', cow.peak_milk_yield ? `${cow.peak_milk_yield} L` : '—'],
-    ['Current Daily', cow.current_daily_milk_yield ? `${cow.current_daily_milk_yield} L` : '—'],
+    ['PD (Group)', cow.pd_group || '—'],
+    ['Pregnancy Status', cow.pregnancy_result || '—'],
+  ]
+  if (cow.ai_service_date) reproFields.push(['AI / Service Date', formatDate(cow.ai_service_date)])
+  if (cow.expected_calving_date) reproFields.push(['Expected Calving', formatDate(cow.expected_calving_date)])
+  drawModule(doc, CX[3], y, CW, 'REPRODUCTION', reproFields, C_GREEN, bodyH)
+
+  y += imgH + 3
+
+  drawModule(doc, CX[0], y, CW, 'MILK PRODUCTION', [
+    ['Current Daily Yield', cow.current_daily_milk_yield ? `${cow.current_daily_milk_yield} L` : '—'],
+    ['Peak Milk Yield', cow.peak_milk_yield ? `${cow.peak_milk_yield} L` : '—'],
     ['Total Lactation', cow.total_lactation_yield ? `${cow.total_lactation_yield} L` : '—'],
-  ], [204, 153, 0])
+    ['305d Projected', cow.projected_305d_milk_yield ? `${cow.projected_305d_milk_yield} L` : '—'],
+    ['Fat % (Last Test)', cow.fat_percent ? `${cow.fat_percent} %` : '—'],
+    ['Protein % (Last Test)', cow.protein_percent ? `${cow.protein_percent} %` : '—'],
+  ], C_BLUE)
 
-  y = drawSection(doc, y, 'HEALTH & SCORING', [
-    ['Body Condition Score', String(cow.body_condition_score ?? '—')],
-    ['Dead Qtr-Teat', cow.dead_qtr_teat || '—'],
-    ['Mastitis History', cow.mastitis_history || '—'],
-    ['Vaccinations', cow.vaccinations || '—'],
+  drawModule(doc, CX[1], y, CW, 'MANAGEMENT', [
+    ['Feeding Group', cow.feeding_group || '—'],
+    ['Milking Group', cow.milking_group || '—'],
+    ['Pen / Barn No', cow.pen_barn_no || '—'],
+    ['Housing', cow.housing || '—'],
+    ['Body Condition Score', cow.body_condition_score ? `${cow.body_condition_score} / 5` : '—'],
+    ['Remarks', cow.remarks || '—'],
+  ], C_ORANGE)
+
+  drawHealthModule(doc, CX[2], y, CW * 2 + G, [
+    ['Mastitis History', cow.mastitis_history || 'None'],
+    ['Vaccination', cow.vaccinations || '—'],
     ['Deworming', cow.deworming_dates || '—'],
-  ], [204, 51, 0])
+    ['Last Health Check', formatDate(cow.updated_at) || '—'],
+  ], cow.quarter_teat_status || 'All OK')
 
-  doc.setFontSize(7)
-  doc.setTextColor(128, 128, 128)
-  doc.text(`Generated: ${new Date().toLocaleString()} | Cow Card v1.0`, margin, doc.internal.pageSize.getHeight() - 10)
+  const footerY = 280
+  doc.setFillColor(C_GREEN[0], C_GREEN[1], C_GREEN[2])
+  doc.rect(0, footerY, PW, 12, 'F')
+  doc.setTextColor(255, 255, 255)
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(6.5)
+  doc.text('Bashe Dairy Farm, P.O. Box 123', M + 2, footerY + 5)
+  doc.text('+254 700 123 456', M + 82, footerY + 5)
+  doc.text('info@bashedairyfarm.com', M + 122, footerY + 5)
+  doc.text('www.bashedairyfarm.com', M + 160, footerY + 5)
+
+  doc.setTextColor(150, 150, 150)
+  doc.setFontSize(6)
+  doc.text(`Generated: ${new Date().toLocaleString()} | Cow Card v2.0`, M, footerY - 3)
 
   return doc
 }

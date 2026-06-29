@@ -12,6 +12,7 @@ export interface Cow {
   id_no: string
   tag: string
   collar_no: string
+  rfid_no: string
   name: string
   sex: 'Male' | 'Female' | ''
   breed: string
@@ -25,19 +26,30 @@ export interface Cow {
   lactations: number
   calving_date: string
   pd_date: string
+  pd_group: string
   pregnancy_result: 'Pregnant' | 'Open' | ''
+  ai_service_date: string
   expected_dry_off_date: string
   expected_calving_date: string
   days_in_milk: number
   peak_milk_yield: number
   current_daily_milk_yield: number
   total_lactation_yield: number
+  fat_percent: number
+  protein_percent: number
+  projected_305d_milk_yield: number
   vaccinations: string
   deworming_dates: string
   mastitis_history: string
   body_condition_score: number
   dead_qtr_teat: string
+  quarter_teat_status: string
   medical_records: string
+  feeding_group: string
+  milking_group: string
+  pen_barn_no: string
+  housing: string
+  remarks: string
   issued_date: string
   issued_by: string
   image_url: string

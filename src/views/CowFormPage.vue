@@ -30,6 +30,7 @@ const emptyCow = (): Cow => ({
   id_no: '',
   tag: '',
   collar_no: '',
+  rfid_no: '',
   name: '',
   sex: '',
   breed: '',
@@ -42,19 +43,30 @@ const emptyCow = (): Cow => ({
   lactations: 0,
   calving_date: '',
   pd_date: '',
+  pd_group: '',
   pregnancy_result: '',
+  ai_service_date: '',
   expected_dry_off_date: '',
   expected_calving_date: '',
   days_in_milk: 0,
   peak_milk_yield: 0,
   current_daily_milk_yield: 0,
   total_lactation_yield: 0,
+  fat_percent: 0,
+  protein_percent: 0,
+  projected_305d_milk_yield: 0,
   vaccinations: '',
   deworming_dates: '',
   mastitis_history: '',
   body_condition_score: 0,
   dead_qtr_teat: '',
+  quarter_teat_status: '',
   medical_records: '',
+  feeding_group: '',
+  milking_group: '',
+  pen_barn_no: '',
+  housing: '',
+  remarks: '',
   issued_date: todayISO(),
   issued_by: '',
   image_url: '',
@@ -193,6 +205,7 @@ function getAgeDisplay(): string {
           <div class="form-group"><label>ID No</label><input v-model="form.id_no" type="text" /></div>
           <div class="form-group"><label>Tag</label><input v-model="form.tag" type="text" /></div>
           <div class="form-group"><label>Collar No</label><input v-model="form.collar_no" type="text" /></div>
+          <div class="form-group"><label>RFID No</label><input v-model="form.rfid_no" type="text" /></div>
           <div class="form-group"><label>Name</label><input v-model="form.name" type="text" /></div>
           <div class="form-group">
             <label>Sex</label>
@@ -218,6 +231,7 @@ function getAgeDisplay(): string {
             <div class="form-group"><label>Lactations</label><input v-model.number="form.lactations" type="number" min="0" /></div>
             <div class="form-group"><label>Calving Date</label><input v-model="form.calving_date" type="date" /></div>
             <div class="form-group"><label>PD (Pregnancy Diagnosis) Date</label><input v-model="form.pd_date" type="date" /></div>
+            <div class="form-group"><label>PD Group</label><input v-model="form.pd_group" type="text" placeholder="e.g. PG (60-90 DIM)" /></div>
             <div class="form-group">
               <label>Pregnancy Result</label>
               <select v-model="form.pregnancy_result">
@@ -227,6 +241,7 @@ function getAgeDisplay(): string {
               </select>
             </div>
             <div class="form-group"><label>Expected Dry-off Date</label><input v-model="form.expected_dry_off_date" type="date" /></div>
+            <div class="form-group"><label>AI / Service Date</label><input v-model="form.ai_service_date" type="date" /></div>
             <div class="form-group"><label>Expected Calving Date</label><input v-model="form.expected_calving_date" type="date" /></div>
           </template>
           <div v-if="form.sex === 'Male'" class="full-width sex-notice">
@@ -250,6 +265,9 @@ function getAgeDisplay(): string {
             <div class="form-group"><label>Peak Milk Yield (L)</label><input v-model.number="form.peak_milk_yield" type="number" step="0.1" min="0" /></div>
             <div class="form-group"><label>Current Daily Milk Yield (L)</label><input v-model.number="form.current_daily_milk_yield" type="number" step="0.1" min="0" /></div>
             <div class="form-group"><label>Total Lactation Yield (L)</label><input v-model.number="form.total_lactation_yield" type="number" step="0.1" min="0" /></div>
+            <div class="form-group"><label>Fat % (Last Test)</label><input v-model.number="form.fat_percent" type="number" step="0.1" min="0" /></div>
+            <div class="form-group"><label>Protein % (Last Test)</label><input v-model.number="form.protein_percent" type="number" step="0.1" min="0" /></div>
+            <div class="form-group"><label>305-Day Projected Yield (L)</label><input v-model.number="form.projected_305d_milk_yield" type="number" step="0.1" min="0" /></div>
           </template>
           <div v-if="form.sex === 'Male'" class="full-width sex-notice">
             ⚠️ Milk production tracking is only for female cows.
@@ -259,6 +277,12 @@ function getAgeDisplay(): string {
         <!-- Step 5: Issuance & Scoring -->
         <div v-if="currentStep === 5" class="fields-grid">
           <div class="form-group"><label>Body Condition Score (1-5)</label><input v-model.number="form.body_condition_score" type="number" step="0.25" min="1" max="5" /></div>
+          <div class="form-group"><label>Feeding Group</label><input v-model="form.feeding_group" type="text" /></div>
+          <div class="form-group"><label>Milking Group</label><input v-model="form.milking_group" type="text" /></div>
+          <div class="form-group"><label>Pen / Barn No</label><input v-model="form.pen_barn_no" type="text" /></div>
+          <div class="form-group"><label>Housing</label><input v-model="form.housing" type="text" placeholder="e.g. Free Stall" /></div>
+          <div class="form-group"><label>Quarter / Teat Status</label><input v-model="form.quarter_teat_status" type="text" placeholder="e.g. All OK" /></div>
+          <div class="form-group full-width"><label>Remarks / Notes</label><textarea v-model="form.remarks" rows="3"></textarea></div>
           <div class="form-group"><label>Issued Date</label><input v-model="form.issued_date" type="date" /></div>
           <div class="form-group"><label>Issued By</label><input v-model="form.issued_by" type="text" /></div>
         </div>
