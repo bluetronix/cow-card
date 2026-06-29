@@ -90,6 +90,32 @@ async function deleteCow(id: string) {
           </tr>
         </tbody>
       </table>
+
+      <div v-if="filteredCows().length > 0" class="cow-cards">
+        <div v-for="cow in filteredCows()" :key="cow.id" class="cow-card">
+          <div class="card-header">
+            <strong class="card-id">{{ cow.id_no }}</strong>
+            <span class="card-sex">{{ cow.sex || '—' }}</span>
+          </div>
+          <div class="card-body">
+            <div class="card-row"><span class="card-label">Tag:</span><span>{{ cow.tag }}</span></div>
+            <div class="card-row"><span class="card-label">Name:</span><span>{{ cow.name || '—' }}</span></div>
+            <div class="card-row"><span class="card-label">Breed:</span><span>{{ cow.breed }}</span></div>
+            <div class="card-row"><span class="card-label">Age:</span><span>{{ cow.birth_date ? calculateAge(cow.birth_date) : '—' }}</span></div>
+            <div class="card-row">
+              <span class="card-label">Pregnancy:</span>
+              <span
+                :class="['badge', cow.pregnancy_result === 'Pregnant' ? 'badge-pregnant' : cow.pregnancy_result === 'Open' ? 'badge-open' : '']"
+              >{{ cow.pregnancy_result || '—' }}</span>
+            </div>
+          </div>
+          <div class="card-actions">
+            <button class="btn-sm" @click="router.push(`/cows/${cow.id}`)">View</button>
+            <button class="btn-sm btn-edit" @click="router.push(`/cows/${cow.id}/edit`)">Edit</button>
+            <button class="btn-sm btn-danger" @click="deleteCow(cow.id)">Delete</button>
+          </div>
+        </div>
+      </div>
       <div v-else class="empty-state">
         <p>No cows registered yet.</p>
         <button class="btn-primary" @click="router.push('/cows/new')">Register First Cow</button>
@@ -253,5 +279,96 @@ async function deleteCow(id: string) {
 
 .empty-state .btn-primary {
   margin-top: 16px;
+}
+
+.cow-cards {
+  display: none;
+}
+
+@media (max-width: 640px) {
+  .page-header {
+    padding: 12px 16px;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .page-header h1 {
+    font-size: 1.1rem;
+  }
+  .header-actions {
+    width: 100%;
+    gap: 8px;
+  }
+  .search-input {
+    flex: 1;
+    width: auto;
+    min-width: 0;
+    font-size: 16px;
+    padding: 10px 12px;
+  }
+  .table-container {
+    padding: 12px;
+  }
+  .cow-table {
+    display: none;
+  }
+  .cow-cards {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .cow-card {
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 1px 6px rgba(0, 0, 0, 0.08);
+    overflow: hidden;
+  }
+  .card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    background: #1a5276;
+    color: #fff;
+  }
+  .card-id {
+    font-size: 1.05rem;
+  }
+  .card-sex {
+    font-size: 0.85rem;
+    opacity: 0.9;
+  }
+  .card-body {
+    padding: 10px 16px;
+  }
+  .card-row {
+    display: flex;
+    gap: 8px;
+    padding: 4px 0;
+    font-size: 0.9rem;
+    color: #444;
+    border-bottom: 1px solid #f5f5f5;
+  }
+  .card-row:last-child {
+    border-bottom: none;
+  }
+  .card-label {
+    font-weight: 600;
+    color: #888;
+    min-width: 80px;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+  }
+  .card-actions {
+    display: flex;
+    gap: 8px;
+    padding: 10px 16px;
+    border-top: 1px solid #f0f0f0;
+  }
+  .card-actions .btn-sm {
+    flex: 1;
+    text-align: center;
+    padding: 8px;
+    font-size: 0.85rem;
+  }
 }
 </style>

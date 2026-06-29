@@ -233,4 +233,26 @@ async function handleSubmit() {
   text-decoration: underline;
   font-size: 0.9rem;
 }
+
+@media (max-width: 640px) {
+  .login-card {
+    padding: 24px 20px;
+    margin: 16px;
+    max-width: none;
+    width: auto;
+  }
+  .login-header h1 {
+    font-size: 1.2rem;
+  }
+  .login-header p {
+    font-size: 0.9rem;
+  }
+  .login-header {
+    margin-bottom: 20px;
+  }
+  .btn-primary {
+    padding: 14px;
+    font-size: 1rem;
+  }
+}
 </style>

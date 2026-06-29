@@ -569,4 +569,62 @@ function getAgeDisplay(): string {
 .btn-secondary:hover {
   border-color: #999;
 }
+
+@media (max-width: 640px) {
+  .form-header {
+    padding: 12px 16px;
+  }
+  .form-header h1 {
+    font-size: 1.1rem;
+  }
+  .stepper {
+    gap: 2px;
+    padding: 16px 12px 0;
+  }
+  .step-label {
+    display: none;
+  }
+  .step-circle {
+    width: 26px;
+    height: 26px;
+    font-size: 0.8rem;
+  }
+  .form-card {
+    margin: 12px;
+    border-radius: 12px;
+  }
+  .step-body {
+    padding: 12px;
+  }
+  .fields-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  .form-group input,
+  .form-group select,
+  .form-group textarea {
+    padding: 10px 12px;
+    font-size: 16px;
+  }
+  .image-preview {
+    width: 120px;
+    height: 120px;
+  }
+  .step-header {
+    padding: 12px 16px;
+  }
+  .step-header h2 {
+    font-size: 0.95rem;
+  }
+  .step-actions {
+    padding: 12px;
+    flex-wrap: wrap;
+  }
+  .step-actions .btn-primary,
+  .step-actions .btn-secondary {
+    flex: 1;
+    text-align: center;
+    padding: 12px 16px;
+  }
+}
 </style>
