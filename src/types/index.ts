@@ -57,16 +57,4 @@ export interface Cow {
   updated_at: string
   synced: number
 }
-
-export interface DailyRecord {
-  id: string
-  cow_id: string
-  date: string
-  milk_yield: number
-  body_condition_score: number
-  notes: string
-  created_at: string
-  synced: number
-}
-
 export type PregnancyResult = 'Pregnant' | 'Open' | ''

@@ -40,12 +40,6 @@ const router = createRouter({
       meta: { requiresAuth: true }
     },
     {
-      path: '/daily',
-      name: 'DailyData',
-      component: () => import('../views/DailyDataPage.vue'),
-      meta: { requiresAuth: true }
-    },
-    {
       path: '/exports',
       name: 'Exports',
       component: () => import('../views/ExportPage.vue'),

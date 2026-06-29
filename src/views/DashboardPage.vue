@@ -36,7 +36,7 @@ async function handleSync() {
   syncResult.value = ''
   try {
     const res = await syncPendingRecords()
-    syncResult.value = `Done: ${res.cows} cows, ${res.daily} records synced`
+    syncResult.value = `Done: ${res} cows synced`
     pendingCount.value = await getPendingCount()
   } catch {
     syncResult.value = 'Sync failed'
@@ -51,7 +51,7 @@ async function handlePull() {
   try {
     const res = await pullFromTurso()
     console.log('[handlePull] result:', res)
-    pullResult.value = `Imported: ${res.cows} cows, ${res.daily} records`
+    pullResult.value = `Imported: ${res} cows`
   } catch (e) {
     console.error('[handlePull] error:', e)
     pullResult.value = 'Import failed'
@@ -74,13 +74,6 @@ const tiles = [
     icon: '\u{1F42E}',
     color: '#0e6655',
     route: '/cows',
-  },
-  {
-    title: 'Daily Recording',
-    description: 'Quick daily data entry by cow ID',
-    icon: '\u{1F4CB}',
-    color: '#b7950b',
-    route: '/daily',
   },
   {
     title: 'Exports',

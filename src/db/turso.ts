@@ -1,5 +1,5 @@
 import { createClient } from '@libsql/client/web'
-import type { Cow, DailyRecord } from '../types'
+import type { Cow } from '../types'
 
 const TURSO_URL = import.meta.env.VITE_TURSO_URL || ''
 const TURSO_TOKEN = import.meta.env.VITE_TURSO_AUTH_TOKEN || ''
@@ -44,22 +44,6 @@ export async function syncCow(cow: Cow): Promise<boolean> {
     return true
   } catch (e) {
     console.error('Turso sync error (cow):', e)
-    return false
-  }
-}
-
-export async function syncDailyRecord(record: DailyRecord): Promise<boolean> {
-  if (!isConnected()) return false
-  try {
-    await turso!.execute({
-      sql: `INSERT OR REPLACE INTO daily_records (
-        id, cow_id, date, milk_yield, body_condition_score, notes, created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      args: [record.id, record.cow_id, record.date, record.milk_yield, record.body_condition_score, record.notes, record.created_at]
-    })
-    return true
-  } catch (e) {
-    console.error('Turso sync error (daily):', e)
     return false
   }
 }
@@ -174,36 +158,6 @@ export async function fetchCows(): Promise<Cow[]> {
     })
   } catch (e: any) {
     console.error('[fetchCows] error:', e?.message || e)
-    return []
-  }
-}
-
-export async function fetchDailyRecordsFromTurso(cowId?: string): Promise<DailyRecord[]> {
-  if (!isConnected()) return []
-  try {
-    let sql = 'SELECT * FROM daily_records'
-    const args: any[] = []
-    if (cowId) {
-      sql += ' WHERE cow_id = ?'
-      args.push(cowId)
-    }
-    sql += ' ORDER BY date DESC'
-    const result = await turso!.execute({ sql, args })
-    return result.rows.map(row => {
-      const r = row as any
-      return {
-        id: String(r.id || ''),
-        cow_id: String(r.cow_id || ''),
-        date: String(r.date || ''),
-        milk_yield: Number(r.milk_yield ?? 0),
-        body_condition_score: Number(r.body_condition_score ?? 0),
-        notes: String(r.notes || ''),
-        created_at: String(r.created_at || ''),
-        synced: 1,
-      } as DailyRecord
-    })
-  } catch (e) {
-    console.error('Turso fetch error (daily):', e)
     return []
   }
 }

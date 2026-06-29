@@ -3,21 +3,18 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { db } from '../db/dexie'
 import { generateSummaryCard, generateDetailedCard, downloadPdf } from '../utils/pdf'
-import { exportCowSummaryCSV, exportCowDetailedCSV, exportDailyRecordsCSV } from '../utils/csv'
+import { exportCowSummaryCSV, exportCowDetailedCSV } from '../utils/csv'
 import { calculateAge } from '../utils/age'
-import type { Cow, DailyRecord } from '../types'
+import type { Cow } from '../types'
 
 const router = useRouter()
 const cows = ref<Cow[]>([])
-const allDailyRecords = ref<DailyRecord[]>([])
 const search = ref('')
 const selectedCow = ref<Cow | null>(null)
-const dailyRecords = ref<DailyRecord[]>([])
 const message = ref('')
 
 onMounted(async () => {
   cows.value = await db.cows.toArray()
-  allDailyRecords.value = await db.dailyRecords.toArray()
 })
 
 const filtered = computed(() => {
@@ -34,13 +31,11 @@ const filtered = computed(() => {
 
 function selectCow(cow: Cow) {
   selectedCow.value = cow
-  dailyRecords.value = allDailyRecords.value.filter(r => r.cow_id === cow.id)
   message.value = ''
 }
 
 function clearSelection() {
   selectedCow.value = null
-  dailyRecords.value = []
 }
 
 async function downloadSummaryPDF() {
@@ -52,7 +47,7 @@ async function downloadSummaryPDF() {
 
 async function downloadDetailedPDF() {
   if (!selectedCow.value) return
-  const doc = await generateDetailedCard(selectedCow.value, dailyRecords.value)
+  const doc = await generateDetailedCard(selectedCow.value)
   downloadPdf(doc, `cow_detailed_${selectedCow.value.id_no || selectedCow.value.id}.pdf`)
   message.value = 'Detailed PDF downloaded'
 }
@@ -69,19 +64,9 @@ function downloadDetailedCSV() {
   message.value = 'Detailed CSV downloaded'
 }
 
-function downloadDailyCSV() {
-  if (dailyRecords.value.length === 0) {
-    message.value = 'No daily records for this cow'
-    return
-  }
-  exportDailyRecordsCSV(dailyRecords.value)
-  message.value = 'Daily records CSV downloaded'
-}
-
 async function exportAllJSON() {
   const allCows = await db.cows.toArray()
-  const allDaily = await db.dailyRecords.toArray()
-  const data = { cows: allCows, dailyRecords: allDaily, exportedAt: new Date().toISOString() }
+  const data = { cows: allCows, exportedAt: new Date().toISOString() }
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
@@ -103,14 +88,8 @@ async function importJSON(event: Event) {
       await db.cows.put(cow)
     }
   }
-  if (data.dailyRecords) {
-    for (const rec of data.dailyRecords) {
-      await db.dailyRecords.put(rec)
-    }
-  }
   cows.value = await db.cows.toArray()
-  allDailyRecords.value = await db.dailyRecords.toArray()
-  message.value = `Imported ${data.cows?.length || 0} cows and ${data.dailyRecords?.length || 0} daily records`
+  message.value = `Imported ${data.cows?.length || 0} cows`
   input.value = ''
 }
 </script>
@@ -229,7 +208,7 @@ async function importJSON(event: Event) {
               <div class="btn-row">
                 <button class="btn-csv" @click="downloadSummaryCSV">Summary</button>
                 <button class="btn-csv" @click="downloadDetailedCSV">Detailed</button>
-                <button class="btn-csv" @click="downloadDailyCSV">Daily Records ({{ dailyRecords.length }})</button>
+
               </div>
             </div>
           </div>

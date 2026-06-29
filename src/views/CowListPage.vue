@@ -28,7 +28,6 @@ const filteredCows = () => {
 async function deleteCow(id: string) {
   if (confirm('Delete this cow record permanently?')) {
     await db.cows.delete(id)
-    await db.dailyRecords.where('cow_id').equals(id).delete()
     cows.value = cows.value.filter(c => c.id !== id)
   }
 }

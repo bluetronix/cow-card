@@ -4,24 +4,16 @@ import { useRoute, useRouter } from 'vue-router'
 import { db } from '../db/dexie'
 import { generateSummaryCard, generateDetailedCard, downloadPdf } from '../utils/pdf'
 import { calculateAge, formatDate } from '../utils/age'
-import type { Cow, DailyRecord } from '../types'
+import type { Cow } from '../types'
 
 const route = useRoute()
 const router = useRouter()
 const cow = ref<Cow | null>(null)
-const dailyRecords = ref<DailyRecord[]>([])
 const loading = ref(true)
 
 onMounted(async () => {
   const id = route.params.id as string
   cow.value = (await db.cows.get(id)) || null
-  if (cow.value) {
-    dailyRecords.value = await db.dailyRecords
-      .where('cow_id')
-      .equals(id)
-      .reverse()
-      .toArray()
-  }
   loading.value = false
 })
 
@@ -33,7 +25,7 @@ async function downloadSummary() {
 
 async function downloadDetailed() {
   if (!cow.value) return
-  const doc = await generateDetailedCard(cow.value, dailyRecords.value)
+  const doc = await generateDetailedCard(cow.value)
   downloadPdf(doc, `cow_detailed_${cow.value.id_no || cow.value.id}.pdf`)
 }
 </script>
@@ -49,7 +41,7 @@ async function downloadDetailed() {
         <button class="btn-pdf" @click="downloadSummary">📄 Summary PDF</button>
         <button class="btn-pdf detailed" @click="downloadDetailed">📄 Detailed PDF</button>
         <button class="btn-edit" @click="router.push(`/cows/${cow?.id}/edit`)">Edit</button>
-        <button class="btn-daily" @click="router.push(`/cows/${cow?.id}/daily`)">+ Daily</button>
+        
       </div>
     </header>
 
@@ -149,23 +141,7 @@ async function downloadDetailed() {
         <p class="medical-text">{{ cow.medical_records || 'No records' }}</p>
       </div>
 
-      <div class="card">
-        <h3>Daily Records ({{ dailyRecords.length }})</h3>
-        <table v-if="dailyRecords.length > 0" class="daily-table">
-          <thead>
-            <tr><th>Date</th><th>Milk (L)</th><th>BCS</th><th>Notes</th></tr>
-          </thead>
-          <tbody>
-            <tr v-for="rec in dailyRecords" :key="rec.id">
-              <td>{{ formatDate(rec.date) }}</td>
-              <td>{{ rec.milk_yield ?? '—' }}</td>
-              <td>{{ rec.body_condition_score ?? '—' }}</td>
-              <td>{{ rec.notes || '—' }}</td>
-            </tr>
-          </tbody>
-        </table>
-        <p v-else class="no-data">No daily records yet. <a @click="router.push(`/cows/${cow.id}/daily`)">Add one</a></p>
-      </div>
+
     </div>
   </div>
 </template>
@@ -306,37 +282,6 @@ async function downloadDetailed() {
   line-height: 1.6;
   white-space: pre-wrap;
   margin: 0;
-}
-
-.daily-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.85rem;
-}
-
-.daily-table th {
-  text-align: left;
-  padding: 8px;
-  border-bottom: 2px solid #f0f0f0;
-  color: #555;
-  font-size: 0.8rem;
-  text-transform: uppercase;
-}
-
-.daily-table td {
-  padding: 8px;
-  border-bottom: 1px solid #f0f0f0;
-}
-
-.no-data {
-  color: #999;
-  font-size: 0.9rem;
-}
-
-.no-data a {
-  color: #1a5276;
-  cursor: pointer;
-  text-decoration: underline;
 }
 
 .loading, .empty {

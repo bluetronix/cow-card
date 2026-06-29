@@ -164,7 +164,7 @@ async function submitForm() {
   saving.value = true
   try {
     await saveStep()
-    router.push('/daily?cow=' + form.value.id)
+    router.push('/cows')
   } finally {
     saving.value = false
   }
@@ -311,7 +311,7 @@ function getAgeDisplay(): string {
           Next →
         </button>
         <button v-else class="btn-primary" style="background: #0e6655" :disabled="saving" @click="submitForm">
-          {{ saving ? 'Saving...' : isEdit ? 'Update & Finish' : 'Save & Go to Daily' }}
+          {{ saving ? 'Saving...' : isEdit ? 'Update & Finish' : 'Save & Finish' }}
         </button>
       </div>
     </div>
