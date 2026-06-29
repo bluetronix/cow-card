@@ -29,27 +29,25 @@ async function handleSubmit() {
   loading.value = true
   try {
     if (isRegister.value) {
-      const ok = await registerUser(
+      const result = await registerUser(
         crypto.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
         username.value,
         password.value,
         fullName.value
       )
-      if (!ok) {
-        error.value = 'Username already exists'
-        return
-      }
-    } else {
-      const result = await loginUser(username.value, password.value)
-      if (!result) {
-        error.value = 'Invalid username or password'
+      if (!result.success) {
+        error.value = result.error
         return
       }
       login(result.username, result.full_name)
-      router.push('/')
-      return
+    } else {
+      const result = await loginUser(username.value, password.value)
+      if (!result.success) {
+        error.value = result.error
+        return
+      }
+      login(result.username, result.full_name)
     }
-    login(username.value, fullName.value || username.value)
     router.push('/')
   } catch {
     error.value = 'Connection error. Check your network.'

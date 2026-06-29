@@ -4,10 +4,5 @@
   "outputDirectory": "dist",
   "rewrites": [
     { "source": "/(.*)", "destination": "/index.html" }
-  ],
-  "env": {
-    "VITE_TURSO_URL": "@turso_url",
-    "VITE_TURSO_AUTH_TOKEN": "@turso_auth_token",
-    "VITE_IMGBB_API_KEY": "@imgbb_api_key"
-  }
+  ]
 }
