@@ -1,5 +1,5 @@
 import { jsPDF } from 'jspdf'
-import type { Cow, DailyRecord } from '../types'
+import type { Cow } from '../types'
 import { calculateAge, formatDate } from './age'
 import logoPath from '../assets/logo.png'
 import QRCode from 'qrcode'
@@ -360,7 +360,7 @@ export async function generateSummaryCard(cow: Cow, orientation: 'portrait' | 'l
   return doc
 }
 
-export async function generateDetailedCard(cow: Cow, dailyRecords: DailyRecord[], orientation: 'portrait' | 'landscape' = 'landscape'): Promise<jsPDF> {
+export async function generateDetailedCard(cow: Cow, orientation: 'portrait' | 'landscape' = 'landscape'): Promise<jsPDF> {
   const doc = await generateSummaryCard(cow, orientation)
   doc.addPage()
   const margin = 15
@@ -377,42 +377,6 @@ export async function generateDetailedCard(cow: Cow, dailyRecords: DailyRecord[]
   doc.setFontSize(8)
   y += 12
   doc.text(cow.medical_records || 'No medical records recorded.', margin + 2, y)
-
-  y += 12
-  doc.setFillColor(0, 153, 76)
-  doc.roundedRect(margin, y - 4, pw - margin * 2, 8, R, R, 'F')
-  doc.setTextColor(255, 255, 255)
-  doc.setFontSize(10)
-  doc.setFont('helvetica', 'bold')
-  doc.text('DAILY RECORDS', margin + 2, y + 1)
-  doc.setTextColor(0, 0, 0)
-  doc.setFontSize(8)
-  y += 12
-
-  if (dailyRecords.length === 0) {
-    doc.text('No daily records recorded yet.', margin + 2, y)
-  } else {
-    doc.setFont('helvetica', 'bold')
-    doc.text('Date', margin + 2, y)
-    doc.text('Milk Yield (L)', margin + 50, y)
-    doc.text('BCS', margin + 90, y)
-    doc.text('Notes', margin + 110, y)
-    doc.setFont('helvetica', 'normal')
-    y += 5
-    doc.line(margin, y, pw - margin, y)
-
-    for (const rec of dailyRecords) {
-      y += 6
-      if (y > 280) {
-        doc.addPage()
-        y = margin + 5
-      }
-      doc.text(formatDate(rec.date), margin + 2, y)
-      doc.text(String(rec.milk_yield ?? '—'), margin + 50, y)
-      doc.text(String(rec.body_condition_score ?? '—'), margin + 90, y)
-      doc.text(rec.notes || '—', margin + 110, y)
-    }
-  }
 
   return doc
 }

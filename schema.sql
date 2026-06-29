@@ -59,19 +59,6 @@ CREATE TABLE IF NOT EXISTS cows (
   updated_at TEXT DEFAULT ''
 );
 
-CREATE TABLE IF NOT EXISTS daily_records (
-  id TEXT PRIMARY KEY,
-  cow_id TEXT NOT NULL,
-  date TEXT NOT NULL,
-  milk_yield REAL DEFAULT 0,
-  body_condition_score REAL DEFAULT 0,
-  notes TEXT DEFAULT '',
-  created_at TEXT DEFAULT '',
-  FOREIGN KEY (cow_id) REFERENCES cows(id) ON DELETE CASCADE
-);
-
 CREATE INDEX IF NOT EXISTS idx_cows_user_id ON cows(user_id);
 CREATE INDEX IF NOT EXISTS idx_cows_id_no ON cows(id_no);
 CREATE INDEX IF NOT EXISTS idx_cows_tag ON cows(tag);
-CREATE INDEX IF NOT EXISTS idx_daily_records_cow_id ON daily_records(cow_id);
-CREATE INDEX IF NOT EXISTS idx_daily_records_date ON daily_records(date);

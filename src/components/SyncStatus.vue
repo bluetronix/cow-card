@@ -15,7 +15,7 @@ async function handleSync() {
   result.value = ''
   try {
     const res = await syncPendingRecords()
-    result.value = `Synced: ${res.cows} cows, ${res.daily} records`
+    result.value = `Synced: ${res} cows`
     pending.value = await getPendingCount()
   } catch {
     result.value = 'Sync failed. Check connection.'
