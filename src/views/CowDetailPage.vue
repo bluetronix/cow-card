@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useAuth } from '../stores/auth'
 import { db } from '../db/dexie'
 import { generateSummaryCard, generateDetailedCard, downloadPdf } from '../utils/pdf'
 import { calculateAge, formatDate } from '../utils/age'
@@ -8,10 +9,13 @@ import type { Cow } from '../types'
 
 const route = useRoute()
 const router = useRouter()
+const { isLoggedIn } = useAuth()
+const authenticated = ref(false)
 const cow = ref<Cow | null>(null)
 const loading = ref(true)
 
 onMounted(async () => {
+  authenticated.value = isLoggedIn()
   const id = route.params.id as string
   cow.value = (await db.cows.get(id)) || null
   loading.value = false
@@ -37,11 +41,10 @@ async function downloadDetailed() {
         <button class="btn-back" @click="router.push('/cows')">← All Cows</button>
         <h1>{{ cow?.id_no || 'Cow Details' }}</h1>
       </div>
-      <div class="header-actions">
+      <div v-if="authenticated" class="header-actions">
         <button class="btn-pdf" @click="downloadSummary">📄 Summary PDF</button>
         <button class="btn-pdf detailed" @click="downloadDetailed">📄 Detailed PDF</button>
         <button class="btn-edit" @click="router.push(`/cows/${cow?.id}/edit`)">Edit</button>
-        
       </div>
     </header>
 
