@@ -77,6 +77,20 @@ const emptyCow = (): Cow => ({
 
 const form = ref<Cow>(emptyCow())
 
+async function generateIdNo(): Promise<string> {
+  const all = await db.cows.toArray()
+  const nums = all.map(c => {
+    const n = parseInt(c.id_no, 10)
+    return isNaN(n) ? 0 : n
+  })
+  const max = nums.length > 0 ? Math.max(...nums) : 0
+  return String(max + 1).padStart(4, '0')
+}
+
+function generateRfidNo(): string {
+  return Array.from({ length: 15 }, () => Math.floor(Math.random() * 10)).join('')
+}
+
 onMounted(async () => {
   if (isEdit && cowId) {
     const existing = await db.cows.get(cowId)
@@ -86,6 +100,8 @@ onMounted(async () => {
     }
   } else {
     form.value.issued_by = fullName.value || currentUser.value || ''
+    form.value.id_no = await generateIdNo()
+    form.value.rfid_no = generateRfidNo()
   }
 })
 
@@ -202,10 +218,10 @@ function getAgeDisplay(): string {
             </div>
             <input ref="fileInput" type="file" accept="image/*" hidden @change="handleImageUpload" />
           </div>
-          <div class="form-group"><label>ID No</label><input v-model="form.id_no" type="text" /></div>
+          <div class="form-group"><label>ID No (auto)</label><input v-model="form.id_no" type="text" disabled /></div>
           <div class="form-group"><label>Tag</label><input v-model="form.tag" type="text" /></div>
           <div class="form-group"><label>Collar No</label><input v-model="form.collar_no" type="text" /></div>
-          <div class="form-group"><label>RFID No</label><input v-model="form.rfid_no" type="text" /></div>
+          <div class="form-group"><label>RFID No (auto)</label><input v-model="form.rfid_no" type="text" /></div>
           <div class="form-group"><label>Name</label><input v-model="form.name" type="text" /></div>
           <div class="form-group">
             <label>Sex</label>

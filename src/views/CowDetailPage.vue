@@ -25,15 +25,15 @@ onMounted(async () => {
   loading.value = false
 })
 
-function downloadSummary() {
+async function downloadSummary() {
   if (!cow.value) return
-  const doc = generateSummaryCard(cow.value)
+  const doc = await generateSummaryCard(cow.value)
   downloadPdf(doc, `cow_summary_${cow.value.id_no || cow.value.id}.pdf`)
 }
 
-function downloadDetailed() {
+async function downloadDetailed() {
   if (!cow.value) return
-  const doc = generateDetailedCard(cow.value, dailyRecords.value)
+  const doc = await generateDetailedCard(cow.value, dailyRecords.value)
   downloadPdf(doc, `cow_detailed_${cow.value.id_no || cow.value.id}.pdf`)
 }
 </script>
