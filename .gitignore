@@ -1,5 +1,6 @@
 # Environment
 .env
+.opencode
 
 # Logs
 logs

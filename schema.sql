@@ -55,6 +55,7 @@ CREATE TABLE IF NOT EXISTS cows (
   issued_date TEXT DEFAULT '',
   issued_by TEXT DEFAULT '',
   image_url TEXT DEFAULT '',
+  lactation_history TEXT DEFAULT '',
   created_at TEXT DEFAULT '',
   updated_at TEXT DEFAULT ''
 );
