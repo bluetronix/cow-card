@@ -1,3 +1,12 @@
+export interface LactationEntry {
+  number: number
+  calving_date: string
+  yield_305d: number
+  peak_yield: number
+  total_yield: number
+  remarks: string
+}
+
 export interface User {
   id: string
   username: string
@@ -56,5 +65,6 @@ export interface Cow {
   created_at: string
   updated_at: string
   synced: number
+  lactation_history: string
 }
 export type PregnancyResult = 'Pregnant' | 'Open' | ''

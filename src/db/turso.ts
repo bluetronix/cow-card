@@ -23,9 +23,9 @@ export async function syncCow(cow: Cow): Promise<boolean> {
         vaccinations, deworming_dates, mastitis_history, body_condition_score,
         dead_qtr_teat, quarter_teat_status, medical_records,
         feeding_group, milking_group, pen_barn_no, housing, remarks,
-        issued_date, issued_by, image_url,
+        issued_date, issued_by, image_url, lactation_history,
         created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       args: [
         cow.id, cow.user_id, cow.id_no, cow.tag, cow.collar_no, cow.rfid_no, cow.name,
         cow.sex, cow.breed, cow.colour, cow.origin, cow.birth_date, cow.group_name,
@@ -37,7 +37,7 @@ export async function syncCow(cow: Cow): Promise<boolean> {
         cow.vaccinations, cow.deworming_dates, cow.mastitis_history, cow.body_condition_score,
         cow.dead_qtr_teat, cow.quarter_teat_status, cow.medical_records,
         cow.feeding_group, cow.milking_group, cow.pen_barn_no, cow.housing, cow.remarks,
-        cow.issued_date, cow.issued_by, cow.image_url,
+        cow.issued_date, cow.issued_by, cow.image_url, cow.lactation_history,
         cow.created_at, cow.updated_at
       ]
     })
@@ -151,6 +151,7 @@ export async function fetchCows(): Promise<Cow[]> {
         issued_date: String(r.issued_date || ''),
         issued_by: String(r.issued_by || ''),
         image_url: String(r.image_url || ''),
+        lactation_history: String(r.lactation_history || ''),
         created_at: String(r.created_at || ''),
         updated_at: String(r.updated_at || ''),
         synced: 1,
@@ -227,6 +228,7 @@ export async function fetchCowById(id: string): Promise<Cow | null> {
       issued_date: String(r.issued_date || ''),
       issued_by: String(r.issued_by || ''),
       image_url: String(r.image_url || ''),
+      lactation_history: String(r.lactation_history || ''),
       created_at: String(r.created_at || ''),
       updated_at: String(r.updated_at || ''),
       synced: 1,
