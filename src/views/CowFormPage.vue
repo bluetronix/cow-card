@@ -238,6 +238,7 @@ async function saveStep() {
     form.value.created_at = new Date().toISOString()
   }
   form.value.updated_at = new Date().toISOString()
+  form.value.issued_by = fullName.value || currentUser.value || ''
 
   await checkCollarNo()
   if (collarNoError.value) return
@@ -251,6 +252,7 @@ async function saveStep() {
   }
 
   form.value.lactation_history = JSON.stringify(lactationEntries.value)
+  form.value.synced = 0
   const plainCow = JSON.parse(JSON.stringify(form.value))
   await db.cows.put(plainCow)
 }
