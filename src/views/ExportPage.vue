@@ -93,6 +93,32 @@ async function exportAllJSON() {
   message.value = 'JSON backup downloaded'
 }
 
+const cowDefaults: Record<string, unknown> = {
+  current_health_status: '',
+  last_checkup_date: '',
+  lactation_history: '[]',
+  sire_no: '',
+  sire_breed: '',
+  dam_no: '',
+  dam_breed: '',
+  breed_type: '',
+  previous_breeding_records: '',
+  expected_dry_off_date: '',
+  ai_service_date: '',
+  expected_calving_date: '',
+  days_in_milk: 0,
+  peak_milk_yield: 0,
+  current_daily_milk_yield: 0,
+  total_lactation_yield: 0,
+  fat_percent: 0,
+  protein_percent: 0,
+  vaccinations: '',
+  deworming_dates: '',
+  mastitis_history: '',
+  dead_qtr_teat: '',
+  medical_records: '',
+}
+
 async function importJSON(event: Event) {
   const input = event.target as HTMLInputElement
   if (!input.files?.length) return
@@ -101,7 +127,7 @@ async function importJSON(event: Event) {
   const data = JSON.parse(text)
   if (data.cows) {
     for (const cow of data.cows) {
-      await db.cows.put(cow)
+      await db.cows.put({ ...cowDefaults, ...cow })
     }
   }
   if (data.dailyRecords) {

@@ -96,7 +96,7 @@ async function handleSave() {
 
     if (cow.value) {
       const update: Partial<Cow> = {
-        current_health_status: healthStatus.value || cow.value.current_health_status,
+        current_health_status: healthStatus.value,
         last_checkup_date: healthStatus.value ? todayISO() : cow.value.last_checkup_date,
       }
       if (milkTotal.value > 0) {
