@@ -1,8 +1,9 @@
 import { db } from '../db/dexie'
-import { syncCow, fetchCows } from '../db/turso'
+import { syncCow, fetchCows, syncDailyRecord, fetchDailyRecordsFromTurso } from '../db/turso'
 
-export async function syncPendingRecords(): Promise<number> {
+export async function syncPendingRecords(): Promise<{ cows: number; daily: number }> {
   let cowsSynced = 0
+  let dailySynced = 0
 
   const unsyncedCows = await db.cows.where('synced').equals(0).toArray()
   for (const cow of unsyncedCows) {
@@ -13,14 +14,23 @@ export async function syncPendingRecords(): Promise<number> {
     }
   }
 
-  return cowsSynced
+  const unsyncedDaily = await db.dailyRecords.where('synced').equals(0).toArray()
+  for (const record of unsyncedDaily) {
+    const ok = await syncDailyRecord(record)
+    if (ok) {
+      await db.dailyRecords.update(record.id, { synced: 1 })
+      dailySynced++
+    }
+  }
+
+  return { cows: cowsSynced, daily: dailySynced }
 }
 
-export async function pullFromTurso(): Promise<number> {
+export async function pullFromTurso(): Promise<{ cows: number; daily: number }> {
   let cowsImported = 0
+  let dailyImported = 0
 
   const remoteCows = await fetchCows()
-  console.log('[pullFromTurso] remote cows:', remoteCows.length)
   for (const cow of remoteCows) {
     const local = await db.cows.get(cow.id)
     if (local && local.synced === 0) continue
@@ -28,10 +38,19 @@ export async function pullFromTurso(): Promise<number> {
     cowsImported++
   }
 
-  console.log('[pullFromTurso] imported:', cowsImported, 'cows')
-  return cowsImported
+  const remoteDaily = await fetchDailyRecordsFromTurso()
+  for (const record of remoteDaily) {
+    const local = await db.dailyRecords.get(record.id)
+    if (local && local.synced === 0) continue
+    await db.dailyRecords.put({ ...record, synced: 1 })
+    dailyImported++
+  }
+
+  return { cows: cowsImported, daily: dailyImported }
 }
 
-export async function getPendingCount(): Promise<number> {
-  return await db.cows.where('synced').equals(0).count()
+export async function getPendingCount(): Promise<{ cows: number; daily: number }> {
+  const cows = await db.cows.where('synced').equals(0).count()
+  const daily = await db.dailyRecords.where('synced').equals(0).count()
+  return { cows, daily }
 }

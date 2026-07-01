@@ -56,9 +56,32 @@ CREATE TABLE IF NOT EXISTS cows (
   issued_by TEXT DEFAULT '',
   image_url TEXT DEFAULT '',
   lactation_history TEXT DEFAULT '',
+  current_health_status TEXT DEFAULT '',
+  last_checkup_date TEXT DEFAULT '',
   created_at TEXT DEFAULT '',
   updated_at TEXT DEFAULT ''
 );
+
+CREATE TABLE IF NOT EXISTS daily_records (
+  id TEXT PRIMARY KEY,
+  cow_id TEXT NOT NULL,
+  date TEXT NOT NULL,
+  milk_yield_morning REAL DEFAULT 0,
+  milk_yield_evening REAL DEFAULT 0,
+  milk_yield_total REAL DEFAULT 0,
+  health_status TEXT DEFAULT '',
+  last_checkup_date TEXT DEFAULT '',
+  temperature REAL DEFAULT 0,
+  symptoms TEXT DEFAULT '',
+  treatment_given TEXT DEFAULT '',
+  health_notes TEXT DEFAULT '',
+  notes TEXT DEFAULT '',
+  created_at TEXT DEFAULT '',
+  FOREIGN KEY (cow_id) REFERENCES cows(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_daily_records_cow_id ON daily_records(cow_id);
+CREATE INDEX IF NOT EXISTS idx_daily_records_date ON daily_records(date);
 
 CREATE INDEX IF NOT EXISTS idx_cows_user_id ON cows(user_id);
 CREATE INDEX IF NOT EXISTS idx_cows_id_no ON cows(id_no);

@@ -7,15 +7,18 @@ import { getPendingCount, syncPendingRecords, pullFromTurso } from '../utils/syn
 const router = useRouter()
 const { currentUser, fullName, logout } = useAuth()
 const pendingCount = ref(0)
+const pendingDaily = ref(0)
 const syncing = ref(false)
 const pulling = ref(false)
 const syncResult = ref('')
 const pullResult = ref('')
 
-const allSynced = computed(() => pendingCount.value === 0 && syncResult.value === '')
+const allSynced = computed(() => pendingCount.value === 0 && pendingDaily.value === 0 && syncResult.value === '')
 
 onMounted(async () => {
-  pendingCount.value = await getPendingCount()
+  const p = await getPendingCount()
+  pendingCount.value = p.cows
+  pendingDaily.value = p.daily
 })
 
 function handleLogout() {
@@ -36,8 +39,10 @@ async function handleSync() {
   syncResult.value = ''
   try {
     const res = await syncPendingRecords()
-    syncResult.value = `Done: ${res} cows synced`
-    pendingCount.value = await getPendingCount()
+    syncResult.value = `Done: ${res.cows} cows, ${res.daily} records synced`
+    const p = await getPendingCount()
+    pendingCount.value = p.cows
+    pendingDaily.value = p.daily
   } catch {
     syncResult.value = 'Sync failed'
   } finally {
@@ -51,7 +56,10 @@ async function handlePull() {
   try {
     const res = await pullFromTurso()
     console.log('[handlePull] result:', res)
-    pullResult.value = `Imported: ${res} cows`
+    pullResult.value = `Imported: ${res.cows} cows, ${res.daily} records`
+    const p = await getPendingCount()
+    pendingCount.value = p.cows
+    pendingDaily.value = p.daily
   } catch (e) {
     console.error('[handlePull] error:', e)
     pullResult.value = 'Import failed'
@@ -74,6 +82,13 @@ const tiles = [
     icon: '\u{1F42E}',
     color: '#0e6655',
     route: '/cows',
+  },
+  {
+    title: 'Daily Recording',
+    description: 'Record milk yield, health checks & treatments',
+    icon: '\u{1F4C5}',
+    color: '#b7950b',
+    route: '/daily',
   },
   {
     title: 'Exports',

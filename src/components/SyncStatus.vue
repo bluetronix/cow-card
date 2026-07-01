@@ -7,7 +7,8 @@ const syncing = ref(false)
 const result = ref('')
 
 onMounted(async () => {
-  pending.value = await getPendingCount()
+  const p = await getPendingCount()
+  pending.value = p.cows + p.daily
 })
 
 async function handleSync() {
@@ -15,8 +16,9 @@ async function handleSync() {
   result.value = ''
   try {
     const res = await syncPendingRecords()
-    result.value = `Synced: ${res} cows`
-    pending.value = await getPendingCount()
+    result.value = `Synced: ${res.cows} cows, ${res.daily} records`
+    const p = await getPendingCount()
+    pending.value = p.cows + p.daily
   } catch {
     result.value = 'Sync failed. Check connection.'
   } finally {

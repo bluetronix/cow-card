@@ -1,3 +1,23 @@
+export type HealthStatus = 'Healthy' | 'Sick' | 'Under Treatment' | ''
+
+export interface DailyRecord {
+  id: string
+  cow_id: string
+  date: string
+  milk_yield_morning: number
+  milk_yield_evening: number
+  milk_yield_total: number
+  health_status: HealthStatus
+  last_checkup_date: string
+  temperature: number
+  symptoms: string
+  treatment_given: string
+  health_notes: string
+  notes: string
+  created_at: string
+  synced: number
+}
+
 export interface LactationEntry {
   number: number
   calving_date: string
@@ -66,5 +86,7 @@ export interface Cow {
   updated_at: string
   synced: number
   lactation_history: string
+  current_health_status: HealthStatus
+  last_checkup_date: string
 }
 export type PregnancyResult = 'Pregnant' | 'Open' | ''
