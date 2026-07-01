@@ -48,7 +48,6 @@ export interface Cow {
   colour: string
   origin: string
   birth_date: string
-  age?: string
   group_name: string
   dam_id: string
   bull_name: string

@@ -81,29 +81,29 @@ const emptyCow = (): Cow => ({
 })
 
 const form = ref<Cow>(emptyCow())
-const ageYears = ref(0)
-const ageMonths = ref(0)
+const ageDecimal = ref<number | null>(null)
 
 function computeBirthDateFromAge() {
-  if (ageYears.value === 0 && ageMonths.value === 0) return
+  if (ageDecimal.value === null || ageDecimal.value === undefined) return
+  const totalMonths = Math.round(ageDecimal.value * 12)
   const today = new Date()
-  today.setFullYear(today.getFullYear() - ageYears.value)
-  today.setMonth(today.getMonth() - ageMonths.value)
+  today.setMonth(today.getMonth() - totalMonths)
   form.value.birth_date = today.toISOString().split('T')[0]
 }
 
 function computeAgeFromBirthDate(bd: string) {
-  if (!bd) { ageYears.value = 0; ageMonths.value = 0; return }
+  if (!bd) { ageDecimal.value = null; return }
   const birth = new Date(bd)
   const today = new Date()
-  let years = today.getFullYear() - birth.getFullYear()
-  let months = today.getMonth() - birth.getMonth()
-  if (months < 0) { years--; months += 12 }
-  ageYears.value = years
-  ageMonths.value = months
+  const diffMonths = (today.getFullYear() - birth.getFullYear()) * 12 + (today.getMonth() - birth.getMonth())
+  ageDecimal.value = Math.round((diffMonths / 12) * 10) / 10
 }
 
-watch([ageYears, ageMonths], computeBirthDateFromAge)
+function onAgeInput(e: Event) {
+  const val = (e.target as HTMLInputElement).value
+  ageDecimal.value = val === '' ? null : parseFloat(val)
+  computeBirthDateFromAge()
+}
 
 async function generateIdNo(): Promise<string> {
   const all = await db.cows.toArray()
@@ -137,6 +137,63 @@ onMounted(async () => {
     lactationEntries.value = Array.isArray(parsed) ? parsed : []
   } catch {
     lactationEntries.value = []
+  }
+})
+
+const GESTATION_DAYS = 280
+const DRY_PERIOD_DAYS = 60
+
+function predictDates() {
+  const pregnant = form.value.pregnancy_result === 'Pregnant'
+  const aiDate = form.value.ai_service_date
+  if (!pregnant || !aiDate) return
+  const ai = new Date(aiDate)
+  if (isNaN(ai.getTime())) return
+  if (!form.value.expected_calving_date) {
+    const calving = new Date(ai)
+    calving.setDate(calving.getDate() + GESTATION_DAYS)
+    form.value.expected_calving_date = calving.toISOString().split('T')[0]
+  }
+  if (!form.value.expected_dry_off_date && form.value.expected_calving_date) {
+    const calving = new Date(form.value.expected_calving_date)
+    calving.setDate(calving.getDate() - DRY_PERIOD_DAYS)
+    form.value.expected_dry_off_date = calving.toISOString().split('T')[0]
+  } else if (!form.value.expected_dry_off_date) {
+    const calving = new Date(ai)
+    calving.setDate(calving.getDate() + GESTATION_DAYS - DRY_PERIOD_DAYS)
+    form.value.expected_dry_off_date = calving.toISOString().split('T')[0]
+  }
+}
+
+function clearPredicted() {
+  const pregnant = form.value.pregnancy_result === 'Pregnant'
+  const aiDate = form.value.ai_service_date
+  if (pregnant || !aiDate) return
+  const ai = new Date(aiDate)
+  if (isNaN(ai.getTime())) return
+  const predictedCalving = new Date(ai)
+  predictedCalving.setDate(predictedCalving.getDate() + GESTATION_DAYS)
+  const predictedCalvingStr = predictedCalving.toISOString().split('T')[0]
+  const predictedDry = new Date(ai)
+  predictedDry.setDate(predictedDry.getDate() + GESTATION_DAYS - DRY_PERIOD_DAYS)
+  const predictedDryStr = predictedDry.toISOString().split('T')[0]
+  if (form.value.expected_calving_date === predictedCalvingStr) {
+    form.value.expected_calving_date = ''
+  }
+  if (form.value.expected_dry_off_date === predictedDryStr) {
+    form.value.expected_dry_off_date = ''
+  }
+}
+
+watch(() => form.value.ai_service_date, () => {
+  predictDates()
+})
+
+watch(() => form.value.pregnancy_result, (val) => {
+  if (val === 'Pregnant') {
+    predictDates()
+  } else {
+    clearPredicted()
   }
 })
 
@@ -241,15 +298,6 @@ function removeLactation(index: number) {
   lactationEntries.value.splice(index, 1)
 }
 
-function getAgeDisplay(): string {
-  if (!form.value.birth_date) return ''
-  const birth = new Date(form.value.birth_date)
-  const today = new Date()
-  let years = today.getFullYear() - birth.getFullYear()
-  let months = today.getMonth() - birth.getMonth()
-  if (months < 0) { years--; months += 12 }
-  return `${years}y ${months}m`
-}
 </script>
 
 <template>
@@ -292,7 +340,7 @@ function getAgeDisplay(): string {
           <div class="form-group"><label>ID No (auto)</label><input v-model="form.id_no" type="text" disabled /></div>
           <div class="form-group"><label>Tag</label><input v-model="form.tag" type="text" /></div>
           <div class="form-group"><label>Collar No</label><input v-model="form.collar_no" type="text" @blur="checkCollarNo" placeholder="Unique per cow" /><span v-if="collarNoError" class="field-error">{{ collarNoError }}</span></div>
-          <div class="form-group"><label>RFID No (auto)</label><input v-model="form.rfid_no" type="text" /></div>
+          <div class="form-group"><label>RFID No</label><input v-model="form.rfid_no" type="text" /></div>
           <div class="form-group"><label>Name</label><input v-model="form.name" type="text" /></div>
           <div class="form-group">
             <label>Sex</label>
@@ -305,10 +353,8 @@ function getAgeDisplay(): string {
           <div class="form-group"><label>Breed / Type</label><input v-model="form.breed" type="text" /></div>
           <div class="form-group"><label>Colour</label><input v-model="form.colour" type="text" /></div>
           <div class="form-group"><label>Origin</label><input v-model="form.origin" type="text" /></div>
-          <div class="form-group"><label>Age (Years)</label><input v-model.number="ageYears" type="number" min="0" /></div>
-          <div class="form-group"><label>Age (Months)</label><input v-model.number="ageMonths" type="number" min="0" max="11" /></div>
-          <div class="form-group"><label>Birth Date</label><input :value="form.birth_date" type="date" class="readonly-input" readonly /></div>
-          <div class="form-group"><label>Age (auto)</label><input :value="getAgeDisplay()" disabled /></div>
+          <div class="form-group"><label>Age (Years)</label><input :value="ageDecimal ?? ''" type="number" step="0.1" min="0" placeholder="e.g. 3.5" @input="onAgeInput" /></div>
+          <div class="form-group"><label>Birth Date</label><input v-model="form.birth_date" type="date" @change="computeAgeFromBirthDate(form.birth_date)" /></div>
           <div class="form-group"><label>Group</label><input v-model="form.group_name" type="text" /></div>
         </div>
 
@@ -362,6 +408,15 @@ function getAgeDisplay(): string {
           <div class="form-group full-width"><label>Mastitis History</label><textarea v-model="form.mastitis_history" rows="3" placeholder="Dates, quarters affected, treatment"></textarea></div>
           <div class="form-group"><label>Dead Qtr-Teat</label><input v-model="form.dead_qtr_teat" type="text" placeholder="e.g. RR Front" /></div>
           <div class="form-group full-width"><label>Medical Records</label><textarea v-model="form.medical_records" rows="4"></textarea></div>
+          <div class="form-group"><label>Current Health Status</label>
+            <select v-model="form.current_health_status">
+              <option value="">— None —</option>
+              <option value="Healthy">Healthy</option>
+              <option value="Sick">Sick</option>
+              <option value="Under Treatment">Under Treatment</option>
+            </select>
+          </div>
+          <div class="form-group"><label>Last Checkup Date</label><input v-model="form.last_checkup_date" type="date" /></div>
         </div>
 
         <!-- Step 4: Milk Production -->
@@ -613,11 +668,6 @@ function getAgeDisplay(): string {
   color: #999;
 }
 
-.readonly-input {
-  background: #f5f5f5 !important;
-  color: #666 !important;
-  cursor: default;
-}
 .field-error {
   display: block; font-size: 0.75rem; color: #d62828; margin-top: 3px; font-weight: 600;
 }
