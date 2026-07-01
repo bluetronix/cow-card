@@ -79,6 +79,30 @@ async function downloadAllCowsCSV() {
   message.value = 'All cows CSV downloaded'
 }
 
+const downloadingDetailed = ref(false)
+const downloadingSummary = ref(false)
+
+async function downloadAllPDFs(type: 'detailed' | 'summary') {
+  const loading = type === 'detailed' ? downloadingDetailed : downloadingSummary
+  loading.value = true
+  message.value = ''
+  try {
+    const allCows = await db.cows.toArray()
+    const gen = type === 'detailed' ? generateDetailedCard : generateSummaryCard
+    const label = type === 'detailed' ? 'Detailed' : 'Summary'
+    for (let i = 0; i < allCows.length; i++) {
+      const cow = allCows[i]
+      message.value = `Generating ${label} PDF ${i + 1} of ${allCows.length}...`
+      const doc = await gen(cow)
+      downloadPdf(doc, `${label.toLowerCase()}_${cow.id_no || cow.id}_${cow.tag || cow.name || 'unknown'}.pdf`.replace(/[^a-zA-Z0-9_.-]/g, '_'))
+      await new Promise(r => setTimeout(r, 300))
+    }
+    message.value = `Downloaded ${allCows.length} ${label} PDFs`
+  } finally {
+    loading.value = false
+  }
+}
+
 async function exportAllJSON() {
   const allCows = await db.cows.toArray()
   const allDaily = await db.dailyRecords.toArray()
@@ -272,6 +296,10 @@ async function importJSON(event: Event) {
             Import JSON
             <input type="file" accept=".json" hidden @change="importJSON" />
           </label>
+        </div>
+        <div class="btn-row" style="margin-top: 10px">
+          <button class="btn-pdf bulk" :disabled="downloadingDetailed" @click="downloadAllPDFs('detailed')">{{ downloadingDetailed ? '⏳ Generating...' : '📄 All Detailed PDFs' }}</button>
+          <button class="btn-pdf bulk summary" :disabled="downloadingSummary" @click="downloadAllPDFs('summary')">{{ downloadingSummary ? '⏳ Generating...' : '📄 All Summary PDFs' }}</button>
         </div>
       </div>
 
@@ -519,6 +547,10 @@ async function importJSON(event: Event) {
 
 .btn-pdf.detailed {
   background: #6c3483;
+}
+
+.btn-pdf.summary {
+  background: #0e6655;
 }
 
 .btn-csv {
