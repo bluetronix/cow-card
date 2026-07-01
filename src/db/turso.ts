@@ -1,5 +1,5 @@
 import { createClient } from '@libsql/client/web'
-import type { Cow } from '../types'
+import type { Cow, DailyRecord } from '../types'
 
 const TURSO_URL = import.meta.env.VITE_TURSO_URL || ''
 const TURSO_TOKEN = import.meta.env.VITE_TURSO_AUTH_TOKEN || ''
@@ -7,6 +7,69 @@ const turso = TURSO_URL ? createClient({ url: TURSO_URL, authToken: TURSO_TOKEN 
 
 function isConnected(): boolean {
   return turso !== null
+}
+
+function mapRow(r: any): DailyRecord {
+  return {
+    id: String(r.id || ''),
+    cow_id: String(r.cow_id || ''),
+    date: String(r.date || ''),
+    milk_yield_morning: Number(r.milk_yield_morning ?? 0),
+    milk_yield_evening: Number(r.milk_yield_evening ?? 0),
+    milk_yield_total: Number(r.milk_yield_total ?? 0),
+    health_status: (String(r.health_status || '') as DailyRecord['health_status']),
+    last_checkup_date: String(r.last_checkup_date || ''),
+    temperature: Number(r.temperature ?? 0),
+    symptoms: String(r.symptoms || ''),
+    treatment_given: String(r.treatment_given || ''),
+    health_notes: String(r.health_notes || ''),
+    notes: String(r.notes || ''),
+    created_at: String(r.created_at || ''),
+    synced: 1,
+  }
+}
+
+export async function syncDailyRecord(record: DailyRecord): Promise<boolean> {
+  if (!isConnected()) return false
+  try {
+    await turso!.execute({
+      sql: `INSERT OR REPLACE INTO daily_records (
+        id, cow_id, date, milk_yield_morning, milk_yield_evening, milk_yield_total,
+        health_status, last_checkup_date, temperature, symptoms, treatment_given, health_notes,
+        notes, created_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      args: [
+        record.id, record.cow_id, record.date,
+        record.milk_yield_morning, record.milk_yield_evening, record.milk_yield_total,
+        record.health_status, record.last_checkup_date, record.temperature,
+        record.symptoms, record.treatment_given, record.health_notes,
+        record.notes, record.created_at
+      ]
+    })
+    return true
+  } catch (e) {
+    console.error('Turso sync error (daily record):', e)
+    return false
+  }
+}
+
+export async function fetchDailyRecordsFromTurso(cowId?: string): Promise<DailyRecord[]> {
+  if (!isConnected()) return []
+  try {
+    let sql = 'SELECT * FROM daily_records'
+    const args: any[] = []
+    if (cowId) {
+      sql += ' WHERE cow_id = ? ORDER BY date DESC'
+      args.push(cowId)
+    } else {
+      sql += ' ORDER BY date DESC'
+    }
+    const result = await turso!.execute({ sql, args })
+    return result.rows.map(r => mapRow(r as any))
+  } catch (e: any) {
+    console.error('[fetchDailyRecordsFromTurso] error:', e?.message || e)
+    return []
+  }
 }
 
 export async function syncCow(cow: Cow): Promise<boolean> {
@@ -24,8 +87,9 @@ export async function syncCow(cow: Cow): Promise<boolean> {
         dead_qtr_teat, quarter_teat_status, medical_records,
         feeding_group, milking_group, pen_barn_no, housing, remarks,
         issued_date, issued_by, image_url, lactation_history,
+        current_health_status, last_checkup_date,
         created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       args: [
         cow.id, cow.user_id, cow.id_no, cow.tag, cow.collar_no, cow.rfid_no, cow.name,
         cow.sex, cow.breed, cow.colour, cow.origin, cow.birth_date, cow.group_name,
@@ -38,6 +102,7 @@ export async function syncCow(cow: Cow): Promise<boolean> {
         cow.dead_qtr_teat, cow.quarter_teat_status, cow.medical_records,
         cow.feeding_group, cow.milking_group, cow.pen_barn_no, cow.housing, cow.remarks,
         cow.issued_date, cow.issued_by, cow.image_url, cow.lactation_history,
+        cow.current_health_status, cow.last_checkup_date,
         cow.created_at, cow.updated_at
       ]
     })
@@ -152,6 +217,8 @@ export async function fetchCows(): Promise<Cow[]> {
         issued_by: String(r.issued_by || ''),
         image_url: String(r.image_url || ''),
         lactation_history: String(r.lactation_history || ''),
+        current_health_status: (String(r.current_health_status || '') as Cow['current_health_status']),
+        last_checkup_date: String(r.last_checkup_date || ''),
         created_at: String(r.created_at || ''),
         updated_at: String(r.updated_at || ''),
         synced: 1,
@@ -229,6 +296,8 @@ export async function fetchCowById(id: string): Promise<Cow | null> {
       issued_by: String(r.issued_by || ''),
       image_url: String(r.image_url || ''),
       lactation_history: String(r.lactation_history || ''),
+      current_health_status: (String(r.current_health_status || '') as Cow['current_health_status']),
+      last_checkup_date: String(r.last_checkup_date || ''),
       created_at: String(r.created_at || ''),
       updated_at: String(r.updated_at || ''),
       synced: 1,

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { db } from '../db/dexie'
 import { useAuth } from '../stores/auth'
@@ -19,6 +19,8 @@ const saving = ref(false)
 const imageFile = ref<File | null>(null)
 const imagePreview = ref('')
 const fileInput = ref<HTMLInputElement | null>(null)
+const collarNoError = ref('')
+const collarNoDupCow = ref('')
 
 function openFileInput() {
   fileInput.value?.click()
@@ -73,10 +75,35 @@ const emptyCow = (): Cow => ({
   lactation_history: '',
   created_at: '',
   updated_at: '',
+  current_health_status: '',
+  last_checkup_date: '',
   synced: 0,
 })
 
 const form = ref<Cow>(emptyCow())
+const ageYears = ref(0)
+const ageMonths = ref(0)
+
+function computeBirthDateFromAge() {
+  if (ageYears.value === 0 && ageMonths.value === 0) return
+  const today = new Date()
+  today.setFullYear(today.getFullYear() - ageYears.value)
+  today.setMonth(today.getMonth() - ageMonths.value)
+  form.value.birth_date = today.toISOString().split('T')[0]
+}
+
+function computeAgeFromBirthDate(bd: string) {
+  if (!bd) { ageYears.value = 0; ageMonths.value = 0; return }
+  const birth = new Date(bd)
+  const today = new Date()
+  let years = today.getFullYear() - birth.getFullYear()
+  let months = today.getMonth() - birth.getMonth()
+  if (months < 0) { years--; months += 12 }
+  ageYears.value = years
+  ageMonths.value = months
+}
+
+watch([ageYears, ageMonths], computeBirthDateFromAge)
 
 async function generateIdNo(): Promise<string> {
   const all = await db.cows.toArray()
@@ -98,6 +125,7 @@ onMounted(async () => {
     if (existing) {
       form.value = existing
       imagePreview.value = existing.image_url
+      computeAgeFromBirthDate(existing.birth_date)
     }
   } else {
     form.value.issued_by = fullName.value || currentUser.value || ''
@@ -134,6 +162,18 @@ async function handleImageUpload(event: Event) {
   }
 }
 
+async function checkCollarNo() {
+  collarNoError.value = ''
+  collarNoDupCow.value = ''
+  const val = form.value.collar_no?.trim()
+  if (!val) return
+  const dup = await db.cows.filter(c => c.collar_no === val && c.id !== form.value.id).toArray()
+  if (dup.length > 0) {
+    collarNoError.value = `Collar No "${val}" already assigned to ${dup[0].id_no || dup[0].tag || dup[0].name || 'another cow'}`
+    collarNoDupCow.value = dup[0].id
+  }
+}
+
 async function saveStep() {
   if (!form.value.id) {
     form.value.id = crypto.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
@@ -141,6 +181,9 @@ async function saveStep() {
     form.value.created_at = new Date().toISOString()
   }
   form.value.updated_at = new Date().toISOString()
+
+  await checkCollarNo()
+  if (collarNoError.value) return
 
   if (imageFile.value) {
     try {
@@ -248,7 +291,7 @@ function getAgeDisplay(): string {
           </div>
           <div class="form-group"><label>ID No (auto)</label><input v-model="form.id_no" type="text" disabled /></div>
           <div class="form-group"><label>Tag</label><input v-model="form.tag" type="text" /></div>
-          <div class="form-group"><label>Collar No</label><input v-model="form.collar_no" type="text" /></div>
+          <div class="form-group"><label>Collar No</label><input v-model="form.collar_no" type="text" @blur="checkCollarNo" placeholder="Unique per cow" /><span v-if="collarNoError" class="field-error">{{ collarNoError }}</span></div>
           <div class="form-group"><label>RFID No (auto)</label><input v-model="form.rfid_no" type="text" /></div>
           <div class="form-group"><label>Name</label><input v-model="form.name" type="text" /></div>
           <div class="form-group">
@@ -262,14 +305,16 @@ function getAgeDisplay(): string {
           <div class="form-group"><label>Breed / Type</label><input v-model="form.breed" type="text" /></div>
           <div class="form-group"><label>Colour</label><input v-model="form.colour" type="text" /></div>
           <div class="form-group"><label>Origin</label><input v-model="form.origin" type="text" /></div>
-          <div class="form-group"><label>Birth Date</label><input v-model="form.birth_date" type="date" /></div>
+          <div class="form-group"><label>Age (Years)</label><input v-model.number="ageYears" type="number" min="0" /></div>
+          <div class="form-group"><label>Age (Months)</label><input v-model.number="ageMonths" type="number" min="0" max="11" /></div>
+          <div class="form-group"><label>Birth Date</label><input :value="form.birth_date" type="date" class="readonly-input" readonly /></div>
           <div class="form-group"><label>Age (auto)</label><input :value="getAgeDisplay()" disabled /></div>
           <div class="form-group"><label>Group</label><input v-model="form.group_name" type="text" /></div>
         </div>
 
         <!-- Step 2: Breeding & Reproduction -->
         <div v-if="currentStep === 2" class="fields-grid">
-          <div class="form-group"><label>Dam (Mother ID)</label><input v-model="form.dam_id" type="text" /></div>
+          <div class="form-group"><label>Dam (Mother Name)</label><input v-model="form.dam_id" type="text" /></div>
           <div class="form-group"><label>Bull Name</label><input v-model="form.bull_name" type="text" /></div>
           <template v-if="form.sex === 'Female'">
             <div class="form-group"><label>Lactations</label><input v-model.number="form.lactations" type="number" min="0" /></div>
@@ -566,6 +611,15 @@ function getAgeDisplay(): string {
 .form-group input:disabled {
   background: #f5f5f5;
   color: #999;
+}
+
+.readonly-input {
+  background: #f5f5f5 !important;
+  color: #666 !important;
+  cursor: default;
+}
+.field-error {
+  display: block; font-size: 0.75rem; color: #d62828; margin-top: 3px; font-weight: 600;
 }
 
 .step-actions {

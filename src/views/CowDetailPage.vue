@@ -6,7 +6,7 @@ import { db } from '../db/dexie'
 import { fetchCowById } from '../db/turso'
 import { generateSummaryCard, generateDetailedCard, downloadPdf } from '../utils/pdf'
 import { calculateAge, formatDate } from '../utils/age'
-import type { Cow } from '../types'
+import type { Cow, DailyRecord } from '../types'
 
 const route = useRoute()
 const router = useRouter()
@@ -14,6 +14,7 @@ const { isLoggedIn } = useAuth()
 const authenticated = ref(false)
 const cow = ref<Cow | null>(null)
 const loading = ref(true)
+const dailyRecords = ref<DailyRecord[]>([])
 
 onMounted(async () => {
   authenticated.value = isLoggedIn()
@@ -21,6 +22,14 @@ onMounted(async () => {
   cow.value = (await db.cows.get(id)) || null
   if (!cow.value) {
     cow.value = await fetchCowById(id)
+  }
+  if (cow.value) {
+    try {
+      dailyRecords.value = await db.dailyRecords
+        .where('cow_id').equals(cow.value.id)
+        .reverse().sortBy('date')
+      dailyRecords.value = dailyRecords.value.slice(0, 10)
+    } catch { /* table may not exist in older DBs */ }
   }
   loading.value = false
 })
@@ -46,8 +55,9 @@ async function downloadDetailed() {
         <h1>{{ cow?.id_no || 'Cow Details' }}</h1>
       </div>
       <div v-if="authenticated" class="header-actions">
-        <button class="btn-pdf" @click="downloadSummary">📄 Summary PDF</button>
-        <button class="btn-pdf detailed" @click="downloadDetailed">📄 Detailed PDF</button>
+        <button class="btn-pdf" @click="downloadSummary">Summary PDF</button>
+        <button class="btn-pdf detailed" @click="downloadDetailed">Detailed PDF</button>
+        <button class="btn-daily" @click="router.push(`/daily?cowId=${cow?.id}`)">Daily Record</button>
         <button class="btn-edit" @click="router.push(`/cows/${cow?.id}/edit`)">Edit</button>
       </div>
     </header>
@@ -85,7 +95,7 @@ async function downloadDetailed() {
       <div v-if="cow.sex !== 'Male'" class="card">
         <h3>Breeding & Reproduction</h3>
         <div class="info-grid">
-          <div><strong>Dam (Mother):</strong> {{ cow.dam_id || '—' }}</div>
+          <div><strong>Dam (Mother Name):</strong> {{ cow.dam_id || '—' }}</div>
           <div><strong>Bull:</strong> {{ cow.bull_name || '—' }}</div>
           <div><strong>Lactations:</strong> {{ cow.lactations ?? '—' }}</div>
           <div><strong>Calving Date:</strong> {{ formatDate(cow.calving_date) || '—' }}</div>
@@ -148,6 +158,32 @@ async function downloadDetailed() {
         <p class="medical-text">{{ cow.medical_records || 'No records' }}</p>
       </div>
 
+      <div v-if="cow.current_health_status" class="card health-status-card">
+        <h3>Current Health Status</h3>
+        <span class="status-badge" :class="cow.current_health_status.toLowerCase().replace(' ', '-')">{{ cow.current_health_status }}</span>
+        <span v-if="cow.last_checkup_date" class="checkup-date">Last checkup: {{ formatDate(cow.last_checkup_date) }}</span>
+      </div>
+
+      <div v-if="dailyRecords.length > 0" class="card">
+        <h3>Recent Daily Records</h3>
+        <div class="daily-mini-table">
+          <table>
+            <thead><tr>
+              <th>Date</th><th>Milk AM</th><th>Milk PM</th><th>Total</th><th>Status</th><th>Temp</th>
+            </tr></thead>
+            <tbody>
+              <tr v-for="r in dailyRecords" :key="r.id">
+                <td>{{ formatDate(r.date) || r.date }}</td>
+                <td>{{ r.milk_yield_morning || '—' }}</td>
+                <td>{{ r.milk_yield_evening || '—' }}</td>
+                <td><strong>{{ r.milk_yield_total || '—' }}</strong></td>
+                <td><span v-if="r.health_status" class="status-badge mini" :class="r.health_status.toLowerCase().replace(' ', '-')">{{ r.health_status }}</span><span v-else>—</span></td>
+                <td>{{ r.temperature ? r.temperature + '°C' : '—' }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
 
     </div>
   </div>
@@ -290,6 +326,22 @@ async function downloadDetailed() {
   white-space: pre-wrap;
   margin: 0;
 }
+
+.health-status-card { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.health-status-card h3 { margin: 0; border: none; padding: 0; font-size: 0.9rem; }
+.status-badge {
+  display: inline-block; padding: 3px 12px; border-radius: 12px;
+  font-size: 0.8rem; font-weight: 700; color: #fff;
+}
+.status-badge.mini { padding: 2px 8px; font-size: 0.7rem; }
+.healthy { background: #15803d; }
+.sick { background: #d62828; }
+.under-treatment { background: #b45309; }
+.checkup-date { font-size: 0.85rem; color: #666; }
+.daily-mini-table { overflow-x: auto; }
+.daily-mini-table table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+.daily-mini-table th, .daily-mini-table td { border: 1px solid #e5e7eb; padding: 5px 8px; text-align: left; white-space: nowrap; }
+.daily-mini-table th { background: #f9fafb; font-weight: 700; color: #333; }
 
 .loading, .empty {
   text-align: center;

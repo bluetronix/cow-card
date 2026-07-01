@@ -3,7 +3,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { db } from '../db/dexie'
 import { generateSummaryCard, generateDetailedCard, downloadPdf } from '../utils/pdf'
-import { exportCowSummaryCSV, exportCowDetailedCSV } from '../utils/csv'
+import { exportCowSummaryCSV, exportCowDetailedCSV, exportDailyRecordsCSV, exportAllCowsCSV } from '../utils/csv'
 import { calculateAge } from '../utils/age'
 import type { Cow } from '../types'
 
@@ -64,9 +64,25 @@ function downloadDetailedCSV() {
   message.value = 'Detailed CSV downloaded'
 }
 
+async function downloadDailyRecordsCSV() {
+  if (!selectedCow.value) return
+  const records = await db.dailyRecords
+    .where('cow_id').equals(selectedCow.value.id)
+    .reverse().sortBy('date')
+  exportDailyRecordsCSV(records)
+  message.value = 'Daily records CSV downloaded'
+}
+
+async function downloadAllCowsCSV() {
+  const allCows = await db.cows.toArray()
+  exportAllCowsCSV(allCows)
+  message.value = 'All cows CSV downloaded'
+}
+
 async function exportAllJSON() {
   const allCows = await db.cows.toArray()
-  const data = { cows: allCows, exportedAt: new Date().toISOString() }
+  const allDaily = await db.dailyRecords.toArray()
+  const data = { cows: allCows, dailyRecords: allDaily, exportedAt: new Date().toISOString() }
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
@@ -88,8 +104,13 @@ async function importJSON(event: Event) {
       await db.cows.put(cow)
     }
   }
+  if (data.dailyRecords) {
+    for (const record of data.dailyRecords) {
+      await db.dailyRecords.put(record)
+    }
+  }
   cows.value = await db.cows.toArray()
-  message.value = `Imported ${data.cows?.length || 0} cows`
+  message.value = `Imported ${data.cows?.length || 0} cows, ${data.dailyRecords?.length || 0} daily records`
   input.value = ''
 }
 </script>
@@ -208,7 +229,7 @@ async function importJSON(event: Event) {
               <div class="btn-row">
                 <button class="btn-csv" @click="downloadSummaryCSV">Summary</button>
                 <button class="btn-csv" @click="downloadDetailedCSV">Detailed</button>
-
+                <button class="btn-csv daily" @click="downloadDailyRecordsCSV">Daily Records</button>
               </div>
             </div>
           </div>
@@ -219,9 +240,10 @@ async function importJSON(event: Event) {
       <div class="card bulk-card">
         <h3>💾 Bulk Data Transfer</h3>
         <div class="btn-row">
-          <button class="btn-json" @click="exportAllJSON">📦 Export All as JSON</button>
+          <button class="btn-csv bulk" @click="downloadAllCowsCSV">Export All as CSV</button>
+          <button class="btn-json" @click="exportAllJSON">Export All as JSON</button>
           <label class="btn-json import">
-            📂 Import JSON
+            Import JSON
             <input type="file" accept=".json" hidden @change="importJSON" />
           </label>
         </div>

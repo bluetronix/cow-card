@@ -1,6 +1,7 @@
 import { jsPDF } from 'jspdf'
 import type { Cow, LactationEntry } from '../types'
 import { calculateAge, formatDate } from './age'
+import { db } from '../db/dexie'
 import logoPath from '../assets/logo.png'
 import QRCode from 'qrcode'
 import html2canvas from 'html2canvas'
@@ -97,18 +98,29 @@ function buildCardHtml(cow: Cow, qrDataUrl: string, logoDataUrl: string): string
     ['Mastitis History', cow.mastitis_history],
     ['Vaccination', cow.vaccinations],
     ['Deworming', cow.deworming_dates],
-    ['Last Health Check', formatDate(cow.updated_at)],
+    ['Last Health Check', formatDate(cow.last_checkup_date) || formatDate(cow.updated_at)],
     ['Next Due', '—'],
   ].map(([label, val]) =>
     `<tr><th>${esc(label)}</th><td>${esc(val || '—')}</td></tr>`).join('')
 
   const quarterStatus = cow.quarter_teat_status || 'All OK'
 
+  const isPregnant = cow.pregnancy_result === 'Pregnant'
+  const isLactating = cow.days_in_milk > 0
+  const isDry = cow.sex === 'Female' && cow.days_in_milk === 0
+  const isSick = cow.current_health_status === 'Sick' || cow.current_health_status === 'Under Treatment'
+
+  const legendItem = (color: string, label: string, active: boolean) =>
+    `<div style="display:flex;align-items:center;gap:6px;opacity:${active ? 1 : 0.35}">
+      <div style="width:12px;height:12px;border-radius:50%;background:${active ? color : '#d1d5db'}"></div>
+      <span style="font-weight:${active ? 700 : 500}">${label}</span>
+    </div>`
+
   const impDates = [
     ['Last Calving', formatDate(cow.calving_date)],
     ['Next Calving (Expected)', formatDate(cow.expected_calving_date)],
     ['Dry-off (Expected)', formatDate(cow.expected_dry_off_date)],
-    ['Next Health Check', '—'],
+    ['Last Checkup', formatDate(cow.last_checkup_date)],
   ].map(([label, val]) =>
     `<tr><th style="width:60%">${esc(label)}</th><td>${esc(val || '—')}</td></tr>`).join('')
 
@@ -181,7 +193,7 @@ body{font-family:Arial,Helvetica,sans-serif;-webkit-font-smoothing:antialiased;b
           <tr><th>Breed / Type</th><td>${esc(cow.breed)}</td></tr>
           <tr><th>Colour</th><td>${esc(cow.colour)}</td></tr>
           <tr><th>Sire (Bull Name)</th><td>${esc(cow.bull_name || '—')}</td></tr>
-          <tr><th>Dam (Mother ID)</th><td>${esc(cow.dam_id || '—')}</td></tr>
+          <tr><th>Dam (Mother Name)</th><td>${esc(cow.dam_id || '—')}</td></tr>
           <tr><th>Origin</th><td>${esc(cow.origin || '—')}</td></tr>
           <tr><th></th><td></td></tr>
         </tbody></table>
@@ -253,10 +265,10 @@ body{font-family:Arial,Helvetica,sans-serif;-webkit-font-smoothing:antialiased;b
       <div class="s2 module">
         <div class="module-header" style="background:#3B5B28">STATUS LEGEND</div>
         <div style="padding:8px;flex:1;display:flex;flex-direction:column;justify-content:center;gap:6px;font-size:10px;font-weight:500;color:#333">
-          <div style="display:flex;align-items:center;gap:6px"><div style="width:12px;height:12px;border-radius:50%;background:#1e7b41"></div><span>Pregnant</span></div>
-          <div style="display:flex;align-items:center;gap:6px"><div style="width:12px;height:12px;border-radius:50%;background:#1069b3"></div><span>Lactating</span></div>
-          <div style="display:flex;align-items:center;gap:6px"><div style="width:12px;height:12px;border-radius:50%;background:#ffb612"></div><span>Dry</span></div>
-          <div style="display:flex;align-items:center;gap:6px"><div style="width:12px;height:12px;border-radius:50%;background:#d62828"></div><span>Sick / Under Treatment</span></div>
+          ${legendItem('#1e7b41', 'Pregnant', isPregnant)}
+          ${legendItem('#1069b3', 'Lactating', isLactating)}
+          ${legendItem('#ffb612', 'Dry', isDry)}
+          ${legendItem('#d62828', 'Sick / Treatment', isSick)}
         </div>
       </div>
       <div class="s3 module">
@@ -277,10 +289,10 @@ body{font-family:Arial,Helvetica,sans-serif;-webkit-font-smoothing:antialiased;b
   <div class="footer">
     <div style="display:flex;align-items:center;gap:8px">
       <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
-      <div style="line-height:1.3"><div style="font-weight:700;font-size:11px">Bashe Dairy Farm</div><div style="color:#B3D8C4">P.O. Box 123, Tabora, Tanzania</div></div>
+      <div style="line-height:1.3"><div style="font-weight:700;font-size:11px">Bashe Dairy Farm</div><div style="color:#B3D8C4">P.O. Box 74, Tabora, Tanzania</div></div>
     </div>
     <div style="display:flex;gap:16px;align-items:center;font-size:10px">
-      <div style="display:flex;align-items:center;gap:4px"><svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/></svg>+255 700 123 456</div>
+      <div style="display:flex;align-items:center;gap:4px"><svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/></svg>+255 612 297 675</div>
       <div style="display:flex;align-items:center;gap:4px"><svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/></svg>info@bdf.co.tz</div>
       <div style="display:flex;align-items:center;gap:4px"><svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.22.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.52c-.22-.72-1.07-1.31-1.9-1.41V15c0-1.1-.9-2-2-2h-2v-2h2c1.1 0 2-.9 2-2V7.41c1.8 1.48 3 3.75 3 6.59 0 1.5-.4 2.92-1.1 4.08z"/></svg>www.bdf.co.tz</div>
     </div>
@@ -353,10 +365,63 @@ export async function generateSummaryCard(cow: Cow, orientation: 'portrait' | 'l
 
 export async function generateDetailedCard(cow: Cow, orientation: 'portrait' | 'landscape' = 'landscape'): Promise<jsPDF> {
   const doc = await generateSummaryCard(cow, orientation)
-  doc.addPage()
   const margin = 15
   const pw = doc.internal.pageSize.getWidth()
   let y = margin + 5
+
+  // Daily Records section
+  doc.addPage()
+  doc.setFillColor(10, 75, 41)
+  doc.roundedRect(margin, y - 4, pw - margin * 2, 8, 1.5, 1.5, 'F')
+  doc.setTextColor(255, 255, 255)
+  doc.setFontSize(10)
+  doc.setFont('helvetica', 'bold')
+  doc.text('DAILY RECORDS', margin + 2, y + 1)
+  doc.setTextColor(0, 0, 0)
+  doc.setFontSize(7)
+  y += 14
+
+  const records = await db.dailyRecords
+    .where('cow_id').equals(cow.id)
+    .reverse().sortBy('date')
+
+  if (records.length === 0) {
+    doc.setFontSize(8)
+    doc.text('No daily records recorded.', margin + 2, y)
+  } else {
+    const cols = ['Date', 'Milk AM', 'Milk PM', 'Total', 'Status', 'Temp', 'Treatment', 'Notes']
+    const colW = (pw - margin * 2) / cols.length
+    doc.setFillColor(240, 242, 245)
+    doc.rect(margin, y - 3, pw - margin * 2, 8, 'F')
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(6.5)
+    cols.forEach((h, i) => doc.text(h, margin + i * colW + 1, y + 1))
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(6)
+    y += 10
+    for (const r of records) {
+      if (y > doc.internal.pageSize.getHeight() - margin) {
+        doc.addPage()
+        y = margin + 5
+      }
+      const vals = [
+        formatDate(r.date) || r.date,
+        r.milk_yield_morning ? `${r.milk_yield_morning}L` : '—',
+        r.milk_yield_evening ? `${r.milk_yield_evening}L` : '—',
+        r.milk_yield_total ? `${r.milk_yield_total}L` : '—',
+        r.health_status || '—',
+        r.temperature ? `${r.temperature}°C` : '—',
+        r.treatment_given || '—',
+        (r.notes || r.health_notes || '—').slice(0, 20),
+      ]
+      vals.forEach((v, i) => doc.text(v, margin + i * colW + 1, y))
+      y += 5
+    }
+  }
+
+  // Medical Records page
+  doc.addPage()
+  y = margin + 5
   doc.setFillColor(102, 51, 153)
   doc.roundedRect(margin, y - 4, pw - margin * 2, 8, 1.5, 1.5, 'F')
   doc.setTextColor(255, 255, 255)
@@ -365,7 +430,7 @@ export async function generateDetailedCard(cow: Cow, orientation: 'portrait' | '
   doc.text('MEDICAL RECORDS', margin + 2, y + 1)
   doc.setTextColor(0, 0, 0)
   doc.setFontSize(8)
-  y += 12
+  y += 14
   doc.text(cow.medical_records || 'No medical records recorded.', margin + 2, y)
   return doc
 }
