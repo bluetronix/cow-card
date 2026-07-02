@@ -1,5 +1,6 @@
 import Dexie, { type Table } from 'dexie'
 import type { Cow, DailyRecord } from '../types'
+import { showToast, formatError } from '../composables/useToast'
 
 export class CowDatabase extends Dexie {
   cows!: Table<Cow, string>
@@ -19,6 +20,7 @@ export class CowDatabase extends Dexie {
   isReady(): Promise<boolean> {
     return this.open().then(() => true).catch(e => {
       console.error('[Dexie] open failed:', e)
+      showToast(formatError(e, 'Local database failed to open.'), 'error')
       return false
     })
   }

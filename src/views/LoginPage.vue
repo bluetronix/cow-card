@@ -3,6 +3,7 @@ import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuth } from '../stores/auth'
 import { loginUser, registerUser } from '../db/turso'
+import { hapticFeedback } from '../composables/useToast'
 
 const router = useRouter()
 const { login } = useAuth()
@@ -37,6 +38,7 @@ async function handleSubmit() {
       )
       if (!result.success) {
         error.value = result.error
+        hapticFeedback('error')
         return
       }
       login(result.username, result.full_name)
@@ -44,6 +46,7 @@ async function handleSubmit() {
       const result = await loginUser(username.value, password.value)
       if (!result.success) {
         error.value = result.error
+        hapticFeedback('error')
         return
       }
       login(result.username, result.full_name)

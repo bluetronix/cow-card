@@ -6,6 +6,7 @@ import { generateSummaryCard, generateDetailedCard, downloadPdf } from '../utils
 import { exportCowSummaryCSV, exportCowDetailedCSV, exportDailyRecordsCSV, exportAllCowsCSV } from '../utils/csv'
 import { calculateAge } from '../utils/age'
 import type { Cow } from '../types'
+import { showToast, formatError } from '../composables/useToast'
 
 const router = useRouter()
 const cows = ref<Cow[]>([])
@@ -39,57 +40,108 @@ function clearSelection() {
 }
 
 async function downloadSummaryPDF() {
-  if (!selectedCow.value) return
-  const doc = await generateSummaryCard(selectedCow.value)
-  downloadPdf(doc, `cow_summary_${selectedCow.value.id_no || selectedCow.value.id}.pdf`)
-  message.value = 'Summary PDF downloaded'
+  if (!selectedCow.value || exportingSingleSummary.value) return
+  exportingSingleSummary.value = true
+  try {
+    const doc = await generateSummaryCard(selectedCow.value)
+    downloadPdf(doc, `cow_summary_${selectedCow.value.id_no || selectedCow.value.id}.pdf`)
+    showToast('Summary PDF downloaded', 'success')
+  } catch (e) {
+    showToast(formatError(e, 'Failed to generate summary PDF'), 'error')
+  } finally {
+    setTimeout(() => { exportingSingleSummary.value = false }, 1500)
+  }
 }
 
 async function downloadDetailedPDF() {
-  if (!selectedCow.value) return
-  const doc = await generateDetailedCard(selectedCow.value)
-  downloadPdf(doc, `cow_detailed_${selectedCow.value.id_no || selectedCow.value.id}.pdf`)
-  message.value = 'Detailed PDF downloaded'
+  if (!selectedCow.value || exportingSingleDetailed.value) return
+  exportingSingleDetailed.value = true
+  try {
+    const doc = await generateDetailedCard(selectedCow.value)
+    downloadPdf(doc, `cow_detailed_${selectedCow.value.id_no || selectedCow.value.id}.pdf`)
+    showToast('Detailed PDF downloaded', 'success')
+  } catch (e) {
+    showToast(formatError(e, 'Failed to generate detailed PDF'), 'error')
+  } finally {
+    setTimeout(() => { exportingSingleDetailed.value = false }, 1500)
+  }
 }
 
-function downloadSummaryCSV() {
-  if (!selectedCow.value) return
-  exportCowSummaryCSV([selectedCow.value])
-  message.value = 'Summary CSV downloaded'
+async function downloadSummaryCSV() {
+  if (!selectedCow.value || exportingSummaryCSV.value) return
+  exportingSummaryCSV.value = true
+  try {
+    exportCowSummaryCSV([selectedCow.value])
+    showToast('Summary CSV downloaded', 'success')
+  } catch (e) {
+    showToast(formatError(e, 'Failed to export summary CSV'), 'error')
+  } finally {
+    setTimeout(() => { exportingSummaryCSV.value = false }, 1500)
+  }
 }
 
-function downloadDetailedCSV() {
-  if (!selectedCow.value) return
-  exportCowDetailedCSV([selectedCow.value])
-  message.value = 'Detailed CSV downloaded'
+async function downloadDetailedCSV() {
+  if (!selectedCow.value || exportingDetailedCSV.value) return
+  exportingDetailedCSV.value = true
+  try {
+    exportCowDetailedCSV([selectedCow.value])
+    showToast('Detailed CSV downloaded', 'success')
+  } catch (e) {
+    showToast(formatError(e, 'Failed to export detailed CSV'), 'error')
+  } finally {
+    setTimeout(() => { exportingDetailedCSV.value = false }, 1500)
+  }
 }
 
 async function downloadDailyRecordsCSV() {
-  if (!selectedCow.value) return
-  const records = await db.dailyRecords
-    .where('cow_id').equals(selectedCow.value.id)
-    .reverse().sortBy('date')
-  exportDailyRecordsCSV(records)
-  message.value = 'Daily records CSV downloaded'
+  if (!selectedCow.value || exportingDailyCSV.value) return
+  exportingDailyCSV.value = true
+  try {
+    const records = await db.dailyRecords
+      .where('cow_id').equals(selectedCow.value.id)
+      .reverse().sortBy('date')
+    exportDailyRecordsCSV(records)
+    showToast('Daily records CSV downloaded', 'success')
+  } catch (e) {
+    showToast(formatError(e, 'Failed to export daily records CSV'), 'error')
+  } finally {
+    setTimeout(() => { exportingDailyCSV.value = false }, 1500)
+  }
 }
 
 async function downloadAllCowsCSV() {
-  const allCows = await db.cows.toArray()
-  exportAllCowsCSV(allCows)
-  message.value = 'All cows CSV downloaded'
+  if (exportingAllCSV.value) return
+  exportingAllCSV.value = true
+  try {
+    const allCows = await db.cows.toArray()
+    exportAllCowsCSV(allCows)
+    showToast(`Exported ${allCows.length} cows to CSV`, 'success')
+  } catch (e) {
+    showToast(formatError(e, 'Failed to export CSV'), 'error')
+  } finally {
+    setTimeout(() => { exportingAllCSV.value = false }, 1500)
+  }
 }
 
 const downloadingDetailed = ref(false)
 const downloadingSummary = ref(false)
+const exportingSingleSummary = ref(false)
+const exportingSingleDetailed = ref(false)
+const exportingSummaryCSV = ref(false)
+const exportingDetailedCSV = ref(false)
+const exportingDailyCSV = ref(false)
+const exportingAllCSV = ref(false)
+const exportingJSON = ref(false)
+const importingJSON = ref(false)
 
 async function downloadAllPDFs(type: 'detailed' | 'summary') {
   const loading = type === 'detailed' ? downloadingDetailed : downloadingSummary
+  const label = type === 'detailed' ? 'Detailed' : 'Summary'
   loading.value = true
   message.value = ''
   try {
     const allCows = await db.cows.toArray()
     const gen = type === 'detailed' ? generateDetailedCard : generateSummaryCard
-    const label = type === 'detailed' ? 'Detailed' : 'Summary'
     for (let i = 0; i < allCows.length; i++) {
       const cow = allCows[i]
       message.value = `Generating ${label} PDF ${i + 1} of ${allCows.length}...`
@@ -97,24 +149,34 @@ async function downloadAllPDFs(type: 'detailed' | 'summary') {
       downloadPdf(doc, `${label.toLowerCase()}_${cow.id_no || cow.id}_${cow.tag || cow.name || 'unknown'}.pdf`.replace(/[^a-zA-Z0-9_.-]/g, '_'))
       await new Promise(r => setTimeout(r, 300))
     }
-    message.value = `Downloaded ${allCows.length} ${label} PDFs`
+    showToast(`Downloaded ${allCows.length} ${label} PDFs`, 'success')
+  } catch (e) {
+    showToast(formatError(e, `Failed to generate ${label} PDFs`), 'error')
   } finally {
     loading.value = false
   }
 }
 
 async function exportAllJSON() {
-  const allCows = await db.cows.toArray()
-  const allDaily = await db.dailyRecords.toArray()
-  const data = { cows: allCows, dailyRecords: allDaily, exportedAt: new Date().toISOString() }
-  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = 'cowcard_backup.json'
-  a.click()
-  URL.revokeObjectURL(url)
-  message.value = 'JSON backup downloaded'
+  if (exportingJSON.value) return
+  exportingJSON.value = true
+  try {
+    const allCows = await db.cows.toArray()
+    const allDaily = await db.dailyRecords.toArray()
+    const data = { cows: allCows, dailyRecords: allDaily, exportedAt: new Date().toISOString() }
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'cowcard_backup.json'
+    a.click()
+    URL.revokeObjectURL(url)
+    showToast(`Backup exported (${allCows.length} cows, ${allDaily.length} records)`, 'success')
+  } catch (e) {
+    showToast(formatError(e, 'Failed to export JSON backup'), 'error')
+  } finally {
+    setTimeout(() => { exportingJSON.value = false }, 1500)
+  }
 }
 
 const cowDefaults: Record<string, unknown> = {
@@ -145,22 +207,33 @@ const cowDefaults: Record<string, unknown> = {
 
 async function importJSON(event: Event) {
   const input = event.target as HTMLInputElement
-  if (!input.files?.length) return
-  const file = input.files[0]
-  const text = await file.text()
-  const data = JSON.parse(text)
-  if (data.cows) {
-    for (const cow of data.cows) {
-      await db.cows.put({ ...cowDefaults, ...cow })
+  if (!input.files?.length || importingJSON.value) return
+  importingJSON.value = true
+  try {
+    const file = input.files[0]
+    const text = await file.text()
+    const data = JSON.parse(text)
+    let cowCount = 0
+    let recordCount = 0
+    if (data.cows) {
+      for (const cow of data.cows) {
+        await db.cows.put({ ...cowDefaults, ...cow })
+        cowCount++
+      }
     }
-  }
-  if (data.dailyRecords) {
-    for (const record of data.dailyRecords) {
-      await db.dailyRecords.put(record)
+    if (data.dailyRecords) {
+      for (const record of data.dailyRecords) {
+        await db.dailyRecords.put(record)
+        recordCount++
+      }
     }
+    cows.value = await db.cows.toArray()
+    showToast(`Imported ${cowCount} cows, ${recordCount} records`, 'success')
+  } catch (e) {
+    showToast(formatError(e, 'Failed to import JSON file'), 'error')
+  } finally {
+    importingJSON.value = false
   }
-  cows.value = await db.cows.toArray()
-  message.value = `Imported ${data.cows?.length || 0} cows, ${data.dailyRecords?.length || 0} daily records`
   input.value = ''
 }
 </script>
@@ -269,17 +342,17 @@ async function importJSON(event: Event) {
             <div class="export-section">
               <h3>📄 PDF</h3>
               <div class="btn-row">
-                <button class="btn-pdf" @click="downloadSummaryPDF">Summary Card</button>
-                <button class="btn-pdf detailed" @click="downloadDetailedPDF">Detailed Card</button>
+                <button class="btn-pdf" :disabled="exportingSingleSummary" @click="downloadSummaryPDF">{{ exportingSingleSummary ? '⏳' : 'Summary Card' }}</button>
+                <button class="btn-pdf detailed" :disabled="exportingSingleDetailed" @click="downloadDetailedPDF">{{ exportingSingleDetailed ? '⏳' : 'Detailed Card' }}</button>
               </div>
             </div>
 
             <div class="export-section">
               <h3>📊 CSV</h3>
               <div class="btn-row">
-                <button class="btn-csv" @click="downloadSummaryCSV">Summary</button>
-                <button class="btn-csv" @click="downloadDetailedCSV">Detailed</button>
-                <button class="btn-csv daily" @click="downloadDailyRecordsCSV">Daily Records</button>
+                <button class="btn-csv" :disabled="exportingSummaryCSV" @click="downloadSummaryCSV">{{ exportingSummaryCSV ? '⏳' : 'Summary' }}</button>
+                <button class="btn-csv" :disabled="exportingDetailedCSV" @click="downloadDetailedCSV">{{ exportingDetailedCSV ? '⏳' : 'Detailed' }}</button>
+                <button class="btn-csv daily" :disabled="exportingDailyCSV" @click="downloadDailyRecordsCSV">{{ exportingDailyCSV ? '⏳' : 'Daily Records' }}</button>
               </div>
             </div>
           </div>
@@ -290,10 +363,10 @@ async function importJSON(event: Event) {
       <div class="card bulk-card">
         <h3>💾 Bulk Data Transfer</h3>
         <div class="btn-row">
-          <button class="btn-csv bulk" @click="downloadAllCowsCSV">Export All as CSV</button>
-          <button class="btn-json" @click="exportAllJSON">Export All as JSON</button>
-          <label class="btn-json import">
-            Import JSON
+          <button class="btn-csv bulk" :disabled="exportingAllCSV" @click="downloadAllCowsCSV">{{ exportingAllCSV ? '⏳' : 'Export All as CSV' }}</button>
+          <button class="btn-json" :disabled="exportingJSON" @click="exportAllJSON">{{ exportingJSON ? '⏳' : 'Export All as JSON' }}</button>
+          <label class="btn-json import" :class="{ disabled: importingJSON }">
+            {{ importingJSON ? '⏳ Importing...' : 'Import JSON' }}
             <input type="file" accept=".json" hidden @change="importJSON" />
           </label>
         </div>

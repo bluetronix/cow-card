@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { db } from '../db/dexie'
 import { todayISO, formatDate } from '../utils/age'
 import type { Cow, DailyRecord, HealthStatus } from '../types'
+import { showToast, formatError } from '../composables/useToast'
 
 const route = useRoute()
 const router = useRouter()
@@ -62,7 +63,10 @@ async function loadRecords() {
       .where('cow_id').equals(cow.value.id)
       .reverse().sortBy('date')
     records.value = records.value.slice(0, 30)
-  } catch { records.value = [] }
+    } catch {
+      records.value = []
+      showToast('Failed to load daily records', 'warning')
+    }
 }
 
 async function handleSave() {
@@ -90,7 +94,7 @@ async function handleSave() {
     try {
       await db.dailyRecords.put(record)
     } catch (e) {
-      console.error('[DailyData] save failed:', e)
+      showToast(formatError(e, 'Failed to save daily record'), 'error')
       return
     }
 
@@ -206,8 +210,9 @@ async function handleSave() {
               <select v-model="healthStatus">
                 <option value="">— Select —</option>
                 <option value="Healthy">Healthy</option>
+                <option value="On Treatment">On Treatment</option>
                 <option value="Sick">Sick</option>
-                <option value="Under Treatment">Under Treatment</option>
+                <option value="Frequently Sick">Frequently Sick</option>
               </select>
             </div>
             <div class="form-group">

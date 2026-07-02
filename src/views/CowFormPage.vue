@@ -5,7 +5,10 @@ import { db } from '../db/dexie'
 import { useAuth } from '../stores/auth'
 import { uploadToImgbb } from '../utils/imgbb'
 import { todayISO } from '../utils/age'
-import type { Cow, LactationEntry } from '../types'
+import type { Cow } from '../types'
+import { BREEDS, COLOURS, LACTATION_OPTIONS, PD_GROUP_OPTIONS, MASTITIS_OPTIONS, HEALTH_STATUS_OPTIONS } from '../types'
+import { showToast, formatError } from '../composables/useToast'
+import PhotoEditor from '../components/PhotoEditor.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -18,13 +21,9 @@ const currentStep = ref(1)
 const saving = ref(false)
 const imageFile = ref<File | null>(null)
 const imagePreview = ref('')
-const fileInput = ref<HTMLInputElement | null>(null)
+const showPhotoEditor = ref(false)
 const collarNoError = ref('')
 const collarNoDupCow = ref('')
-
-function openFileInput() {
-  fileInput.value?.click()
-}
 
 const emptyCow = (): Cow => ({
   id: '',
@@ -41,12 +40,14 @@ const emptyCow = (): Cow => ({
   birth_date: '',
   group_name: '',
   dam_id: '',
-  bull_name: '',
+  dam_breed: '',
+  sire_id: '',
+  sire_breed: '',
   lactations: 0,
   calving_date: '',
   pd_date: '',
   pd_group: '',
-  pregnancy_result: '',
+  pregnancy_result: 'Open',
   ai_service_date: '',
   expected_dry_off_date: '',
   expected_calving_date: '',
@@ -64,10 +65,13 @@ const emptyCow = (): Cow => ({
   dead_qtr_teat: '',
   quarter_teat_status: '',
   medical_records: '',
+  vet_recommendations: '',
   feeding_group: '',
   milking_group: '',
-  pen_barn_no: '',
+  barn_name: '',
   housing: '',
+  cull_status: '-',
+  abortion_count: 0,
   remarks: '',
   issued_date: todayISO(),
   issued_by: '',
@@ -115,10 +119,6 @@ async function generateIdNo(): Promise<string> {
   return String(max + 1).padStart(4, '0')
 }
 
-function generateRfidNo(): string {
-  return Array.from({ length: 15 }, () => Math.floor(Math.random() * 10)).join('')
-}
-
 onMounted(async () => {
   if (isEdit && cowId) {
     const existing = await db.cows.get(cowId)
@@ -130,13 +130,6 @@ onMounted(async () => {
   } else {
     form.value.issued_by = fullName.value || currentUser.value || ''
     form.value.id_no = await generateIdNo()
-    form.value.rfid_no = generateRfidNo()
-  }
-  try {
-    const parsed = JSON.parse(form.value.lactation_history || '[]')
-    lactationEntries.value = Array.isArray(parsed) ? parsed : []
-  } catch {
-    lactationEntries.value = []
   }
 })
 
@@ -207,16 +200,25 @@ const steps = [
 
 const currentStepData = computed(() => steps.find(s => s.num === currentStep.value))
 
-async function handleImageUpload(event: Event) {
-  const input = event.target as HTMLInputElement
-  if (input.files && input.files[0]) {
-    imageFile.value = input.files[0]
-    const reader = new FileReader()
-    reader.onload = e => {
-      imagePreview.value = e.target?.result as string
-    }
-    reader.readAsDataURL(input.files[0])
-  }
+function openPhotoEditor() {
+  showPhotoEditor.value = true
+}
+
+function handlePhotoCrop(croppedFile: File) {
+  imageFile.value = croppedFile
+  imagePreview.value = URL.createObjectURL(croppedFile)
+  showPhotoEditor.value = false
+}
+
+function handlePhotoCancel() {
+  showPhotoEditor.value = false
+}
+
+function handlePhotoRemove() {
+  showPhotoEditor.value = false
+  imageFile.value = null
+  imagePreview.value = ''
+  form.value.image_url = ''
 }
 
 async function checkCollarNo() {
@@ -247,20 +249,26 @@ async function saveStep() {
     try {
       form.value.image_url = await uploadToImgbb(imageFile.value)
     } catch {
-      // keep local preview if upload fails
+      showToast('Image upload failed. Using local preview.', 'warning')
     }
   }
 
-  form.value.lactation_history = JSON.stringify(lactationEntries.value)
   form.value.synced = 0
   const plainCow = JSON.parse(JSON.stringify(form.value))
   await db.cows.put(plainCow)
 }
 
 async function nextStep() {
-  await saveStep()
-  if (currentStep.value < 5) {
-    currentStep.value++
+  saving.value = true
+  try {
+    await saveStep()
+    if (currentStep.value < 5) {
+      currentStep.value++
+    }
+  } catch (e) {
+    showToast(formatError(e, 'Failed to save cow. Please try again.'), 'error')
+  } finally {
+    saving.value = false
   }
 }
 
@@ -274,30 +282,13 @@ async function submitForm() {
   saving.value = true
   try {
     await saveStep()
+    showToast(isEdit ? 'Cow updated successfully' : 'Cow registered successfully', 'success')
     router.push('/cows')
+  } catch (e) {
+    showToast(formatError(e, 'Failed to save cow. Please try again.'), 'error')
   } finally {
     saving.value = false
   }
-}
-
-const lactationEntries = ref<LactationEntry[]>([])
-
-function addLactation() {
-  const nextNum = lactationEntries.value.length > 0
-    ? Math.max(...lactationEntries.value.map(e => e.number)) + 1
-    : 1
-  lactationEntries.value.push({
-    number: nextNum,
-    calving_date: '',
-    yield_305d: 0,
-    peak_yield: 0,
-    total_yield: 0,
-    remarks: '',
-  })
-}
-
-function removeLactation(index: number) {
-  lactationEntries.value.splice(index, 1)
 }
 
 </script>
@@ -333,16 +324,17 @@ function removeLactation(index: number) {
         <!-- Step 1: Identity & General -->
         <div v-if="currentStep === 1" class="fields-grid">
           <div class="image-upload-section">
-            <div class="image-preview" @click="openFileInput">
+            <div class="image-preview" @click="openPhotoEditor">
               <img v-if="imagePreview" :src="imagePreview" alt="Preview" />
               <span v-else>Click to add photo</span>
+              <div class="preview-overlay">
+                <span class="camera-icon">📷</span>
+              </div>
             </div>
-            <input ref="fileInput" type="file" accept="image/*" hidden @change="handleImageUpload" />
           </div>
-          <div class="form-group"><label>ID No (auto)</label><input v-model="form.id_no" type="text" disabled /></div>
+          <div class="form-group"><label>Card Number <!-- column: id_no --></label><input v-model="form.id_no" type="text" disabled /></div>
           <div class="form-group"><label>Tag</label><input v-model="form.tag" type="text" /></div>
           <div class="form-group"><label>Collar No</label><input v-model="form.collar_no" type="text" @blur="checkCollarNo" placeholder="Unique per cow" /><span v-if="collarNoError" class="field-error">{{ collarNoError }}</span></div>
-          <div class="form-group"><label>RFID No</label><input v-model="form.rfid_no" type="text" /></div>
           <div class="form-group"><label>Name</label><input v-model="form.name" type="text" /></div>
           <div class="form-group">
             <label>Sex</label>
@@ -352,8 +344,20 @@ function removeLactation(index: number) {
               <option value="Male">Male</option>
             </select>
           </div>
-          <div class="form-group"><label>Breed / Type</label><input v-model="form.breed" type="text" /></div>
-          <div class="form-group"><label>Colour</label><input v-model="form.colour" type="text" /></div>
+          <div class="form-group">
+            <label>Breed / Type <!-- column: breed --></label>
+            <select v-model="form.breed">
+              <option value="">— Select —</option>
+              <option v-for="b in BREEDS" :key="b" :value="b">{{ b }}</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Colour <!-- column: colour --></label>
+            <select v-model="form.colour">
+              <option value="">— Select —</option>
+              <option v-for="c in COLOURS" :key="c" :value="c">{{ c }}</option>
+            </select>
+          </div>
           <div class="form-group"><label>Origin</label><input v-model="form.origin" type="text" /></div>
           <div class="form-group"><label>Age (Years)</label><input :value="ageDecimal ?? ''" type="number" step="0.1" min="0" placeholder="e.g. 3.5" @input="onAgeInput" /></div>
           <div class="form-group"><label>Birth Date</label><input v-model="form.birth_date" type="date" @change="computeAgeFromBirthDate(form.birth_date)" /></div>
@@ -362,13 +366,39 @@ function removeLactation(index: number) {
 
         <!-- Step 2: Breeding & Reproduction -->
         <div v-if="currentStep === 2" class="fields-grid">
-          <div class="form-group"><label>Dam (Mother Name)</label><input v-model="form.dam_id" type="text" /></div>
-          <div class="form-group"><label>Bull Name</label><input v-model="form.bull_name" type="text" /></div>
+          <div class="form-group"><label>Dam ID <!-- column: dam_id --></label><input v-model="form.dam_id" type="text" placeholder="tag-DOB (e.g. 1296-2023-07-02)" /></div>
+          <div class="form-group">
+            <label>Dam Breed <!-- column: dam_breed --></label>
+            <select v-model="form.dam_breed">
+              <option value="">— Select —</option>
+              <option v-for="b in BREEDS" :key="b" :value="b">{{ b }}</option>
+            </select>
+          </div>
+          <div class="form-group"><label>Sire ID <!-- column: sire_id (was bull_name) --></label><input v-model="form.sire_id" type="text" placeholder="tag-DOB (e.g. 1296-2023-07-02)" /></div>
+          <div class="form-group">
+            <label>Sire Breed <!-- column: sire_breed --></label>
+            <select v-model="form.sire_breed">
+              <option value="">— Select —</option>
+              <option v-for="b in BREEDS" :key="b" :value="b">{{ b }}</option>
+            </select>
+          </div>
           <template v-if="form.sex === 'Female'">
-            <div class="form-group"><label>Lactations</label><input v-model.number="form.lactations" type="number" min="0" /></div>
+            <div class="form-group">
+              <label>Lactations <!-- column: lactations --></label>
+              <select v-model.number="form.lactations">
+                <option :value="0">— Select —</option>
+                <option v-for="n in LACTATION_OPTIONS" :key="n" :value="n">{{ n }}</option>
+              </select>
+            </div>
             <div class="form-group"><label>Calving Date</label><input v-model="form.calving_date" type="date" /></div>
             <div class="form-group"><label>PD (Pregnancy Diagnosis) Date</label><input v-model="form.pd_date" type="date" /></div>
-            <div class="form-group"><label>PD Group</label><input v-model="form.pd_group" type="text" placeholder="e.g. PG (60-90 DIM)" /></div>
+            <div class="form-group">
+              <label>PD Group <!-- column: pd_group --></label>
+              <select v-model="form.pd_group">
+                <option value="">— Select —</option>
+                <option v-for="g in PD_GROUP_OPTIONS" :key="g" :value="g">{{ g }}</option>
+              </select>
+            </div>
             <div class="form-group">
               <label>Pregnancy Result</label>
               <select v-model="form.pregnancy_result">
@@ -381,23 +411,6 @@ function removeLactation(index: number) {
             <div class="form-group"><label>AI / Service Date</label><input v-model="form.ai_service_date" type="date" /></div>
             <div class="form-group"><label>Expected Calving Date</label><input v-model="form.expected_calving_date" type="date" /></div>
           </template>
-          <template v-if="form.sex === 'Female'">
-            <div class="full-width lactation-section">
-              <h4>Lactation History</h4>
-              <div v-for="(entry, i) in lactationEntries" :key="i" class="lactation-row">
-                <div class="lactation-fields">
-                  <div class="form-group"><label>#</label><input v-model.number="entry.number" type="number" min="1" /></div>
-                  <div class="form-group"><label>Calving</label><input v-model="entry.calving_date" type="date" /></div>
-                  <div class="form-group"><label>305d (L)</label><input v-model.number="entry.yield_305d" type="number" step="0.1" min="0" /></div>
-                  <div class="form-group"><label>Peak (L)</label><input v-model.number="entry.peak_yield" type="number" step="0.1" min="0" /></div>
-                  <div class="form-group"><label>Total (L)</label><input v-model.number="entry.total_yield" type="number" step="0.1" min="0" /></div>
-                  <div class="form-group"><label>Remarks</label><input v-model="entry.remarks" type="text" /></div>
-                </div>
-                <button class="btn-remove-lactation" @click="removeLactation(i)" title="Remove">✕</button>
-              </div>
-              <button class="btn-add-lactation" @click="addLactation">+ Add Lactation</button>
-            </div>
-          </template>
           <div v-if="form.sex === 'Male'" class="full-width sex-notice">
             ⚠️ Breeding & reproduction fields are only relevant for females.
           </div>
@@ -407,18 +420,25 @@ function removeLactation(index: number) {
         <div v-if="currentStep === 3" class="fields-grid">
           <div class="form-group full-width"><label>Vaccinations</label><textarea v-model="form.vaccinations" rows="3"></textarea></div>
           <div class="form-group full-width"><label>Deworming Dates</label><textarea v-model="form.deworming_dates" rows="3" placeholder="List dates and treatments"></textarea></div>
-          <div class="form-group full-width"><label>Mastitis History</label><textarea v-model="form.mastitis_history" rows="3" placeholder="Dates, quarters affected, treatment"></textarea></div>
+          <div class="form-group">
+            <label>Mastitis History <!-- column: mastitis_history --></label>
+            <select v-model="form.mastitis_history">
+              <option value="">— Select —</option>
+              <option v-for="m in MASTITIS_OPTIONS" :key="m" :value="m">{{ m }}</option>
+            </select>
+          </div>
           <div class="form-group"><label>Dead Qtr-Teat</label><input v-model="form.dead_qtr_teat" type="text" placeholder="e.g. RR Front" /></div>
           <div class="form-group full-width"><label>Medical Records</label><textarea v-model="form.medical_records" rows="4"></textarea></div>
-          <div class="form-group"><label>Current Health Status</label>
+          <div class="form-group full-width"><label>Doctor Recommendations <!-- column: vet_recommendations --></label><textarea v-model="form.vet_recommendations" rows="3" placeholder="Vet notes, treatment plans, follow-up recommendations"></textarea></div>
+          <div class="form-group">
+            <label>Health Status <!-- column: current_health_status --></label>
             <select v-model="form.current_health_status">
               <option value="">— None —</option>
-              <option value="Healthy">Healthy</option>
-              <option value="Sick">Sick</option>
-              <option value="Under Treatment">Under Treatment</option>
+              <option v-for="h in HEALTH_STATUS_OPTIONS" :key="h" :value="h">{{ h }}</option>
             </select>
           </div>
           <div class="form-group"><label>Last Checkup Date</label><input v-model="form.last_checkup_date" type="date" /></div>
+          <div class="form-group"><label>Abortions Count <!-- column: abortion_count --></label><input v-model.number="form.abortion_count" type="number" min="0" /></div>
         </div>
 
         <!-- Step 4: Milk Production -->
@@ -442,8 +462,15 @@ function removeLactation(index: number) {
           <div class="form-group"><label>Body Condition Score (1-5)</label><input v-model.number="form.body_condition_score" type="number" step="0.25" min="1" max="5" /></div>
           <div class="form-group"><label>Feeding Group</label><input v-model="form.feeding_group" type="text" /></div>
           <div class="form-group"><label>Milking Group</label><input v-model="form.milking_group" type="text" /></div>
-          <div class="form-group"><label>Pen / Barn No</label><input v-model="form.pen_barn_no" type="text" /></div>
+          <div class="form-group"><label>Barn Name <!-- column: barn_name (was pen_barn_no) --></label><input v-model="form.barn_name" type="text" /></div>
           <div class="form-group"><label>Housing</label><input v-model="form.housing" type="text" placeholder="e.g. Free Stall" /></div>
+          <div class="form-group">
+            <label>Cull Status <!-- column: cull_status --></label>
+            <select v-model="form.cull_status">
+              <option value="-">-</option>
+              <option value="+">+</option>
+            </select>
+          </div>
           <div class="form-group"><label>Quarter / Teat Status</label><input v-model="form.quarter_teat_status" type="text" placeholder="e.g. All OK" /></div>
           <div class="form-group full-width"><label>Remarks / Notes</label><textarea v-model="form.remarks" rows="3"></textarea></div>
           <div class="form-group"><label>Issued Date</label><input v-model="form.issued_date" type="date" /></div>
@@ -454,8 +481,8 @@ function removeLactation(index: number) {
       <div class="step-actions">
         <button v-if="currentStep > 1" class="btn-secondary" @click="prevStep">← Previous</button>
         <div class="flex-grow"></div>
-        <button v-if="currentStep < 5" class="btn-primary" :style="{ background: currentStepData?.color }" @click="nextStep">
-          Next →
+        <button v-if="currentStep < 5" class="btn-primary" :style="{ background: currentStepData?.color }" :disabled="saving" @click="nextStep">
+          {{ saving ? '⏳ Saving...' : 'Next →' }}
         </button>
         <button v-else class="btn-primary" style="background: #0e6655" :disabled="saving" @click="submitForm">
           {{ saving ? 'Saving...' : isEdit ? 'Update & Finish' : 'Save & Finish' }}
@@ -463,6 +490,15 @@ function removeLactation(index: number) {
       </div>
     </div>
   </div>
+
+  <PhotoEditor
+    v-if="showPhotoEditor"
+    :image-src="imagePreview || ''"
+    :has-existing-image="!!form.image_url"
+    @crop="handlePhotoCrop"
+    @cancel="handlePhotoCancel"
+    @remove="handlePhotoRemove"
+  />
 </template>
 
 <style scoped>
@@ -609,6 +645,7 @@ function removeLactation(index: number) {
 }
 
 .image-preview {
+  position: relative;
   width: 160px;
   height: 160px;
   border: 2px dashed #ccc;
@@ -628,6 +665,23 @@ function removeLactation(index: number) {
   height: 100%;
   object-fit: cover;
 }
+
+.preview-overlay {
+  position: absolute;
+  bottom: 6px;
+  right: 6px;
+  background: rgba(0, 0, 0, 0.55);
+  border-radius: 6px;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+.image-preview:hover .preview-overlay { opacity: 1; }
+.preview-overlay .camera-icon { font-size: 1rem; }
 
 .form-group {
   display: flex;
@@ -719,85 +773,6 @@ function removeLactation(index: number) {
 
 .btn-secondary:hover {
   border-color: #999;
-}
-
-.lactation-section {
-  border: 2px solid #e0e0e0;
-  border-radius: 8px;
-  padding: 16px;
-  margin-top: 8px;
-  background: #fafafa;
-}
-
-.lactation-section h4 {
-  margin: 0 0 12px;
-  font-size: 0.85rem;
-  color: #333;
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
-}
-
-.lactation-row {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  margin-bottom: 8px;
-  padding-bottom: 8px;
-  border-bottom: 1px solid #e8e8e8;
-}
-
-.lactation-row:last-child {
-  margin-bottom: 0;
-  padding-bottom: 0;
-  border-bottom: none;
-}
-
-.lactation-fields {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  flex: 1;
-}
-
-.lactation-fields .form-group {
-  flex: 1;
-  min-width: 80px;
-}
-
-.lactation-fields .form-group label {
-  font-size: 0.65rem;
-}
-
-.lactation-fields .form-group input {
-  padding: 6px 8px;
-  font-size: 0.85rem;
-}
-
-.btn-remove-lactation {
-  background: none;
-  border: none;
-  color: #e74c3c;
-  font-size: 1rem;
-  cursor: pointer;
-  padding: 6px;
-  line-height: 1;
-  margin-top: 18px;
-}
-
-.btn-add-lactation {
-  padding: 8px 16px;
-  background: #0e6655;
-  color: #fff;
-  border: none;
-  border-radius: 6px;
-  font-size: 0.85rem;
-  font-weight: 600;
-  cursor: pointer;
-  margin-top: 8px;
-}
-
-.btn-add-lactation:hover {
-  opacity: 0.9;
 }
 
 @media (max-width: 640px) {

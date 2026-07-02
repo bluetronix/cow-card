@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { db } from '../db/dexie'
 import type { Cow } from '../types'
 import { calculateAge } from '../utils/age'
+import { showToast, formatError, showConfirm } from '../composables/useToast'
 
 const router = useRouter()
 const cows = ref<Cow[]>([])
@@ -26,10 +27,22 @@ const filteredCows = () => {
 }
 
 async function deleteCow(id: string) {
-  if (confirm('Delete this cow record permanently?')) {
-    await db.cows.delete(id)
-    cows.value = cows.value.filter(c => c.id !== id)
-  }
+  const cow = cows.value.find(c => c.id === id)
+  const label = cow?.id_no || cow?.tag || cow?.name || id
+  showConfirm(
+    'Delete Cow',
+    `Permanently delete "${label}"? This action cannot be undone.`,
+    async () => {
+      try {
+        await db.cows.delete(id)
+        cows.value = cows.value.filter(c => c.id !== id)
+        showToast(`Deleted "${label}"`, 'success')
+      } catch (e) {
+        showToast(formatError(e, 'Failed to delete cow'), 'error')
+      }
+    },
+    'Delete',
+  )
 }
 </script>
 
@@ -57,12 +70,13 @@ async function deleteCow(id: string) {
       <table v-if="filteredCows().length > 0" class="cow-table">
         <thead>
           <tr>
-            <th>ID No</th>
+            <th>Card No <!-- column: id_no --></th>
             <th>Tag</th>
             <th>Name</th>
             <th>Sex</th>
             <th>Breed</th>
             <th>Age</th>
+            <th>Cull <!-- column: cull_status --></th>
             <th>Pregnancy</th>
             <th>Actions</th>
           </tr>
@@ -77,9 +91,14 @@ async function deleteCow(id: string) {
             <td>{{ cow.birth_date ? calculateAge(cow.birth_date) : '—' }}</td>
             <td>
               <span
-                :class="['badge', cow.pregnancy_result === 'Pregnant' ? 'badge-pregnant' : cow.pregnancy_result === 'Open' ? 'badge-open' : '']"
+                :class="['badge', cow.cull_status === '+' ? 'badge-cull' : 'badge-ok']"
+              >{{ cow.cull_status || '-' }}</span>
+            </td>
+            <td>
+              <span
+                :class="['badge', cow.pregnancy_result === 'Pregnant' ? 'badge-pregnant' : 'badge-open']"
               >
-                {{ cow.pregnancy_result || '—' }}
+                {{ cow.pregnancy_result || 'Open' }}
               </span>
             </td>
             <td class="actions">
@@ -94,7 +113,7 @@ async function deleteCow(id: string) {
       <div v-if="filteredCows().length > 0" class="cow-cards">
         <div v-for="cow in filteredCows()" :key="cow.id" class="cow-card">
           <div class="card-header">
-            <strong class="card-id">{{ cow.id_no }}</strong>
+            <strong class="card-id">#{{ cow.id_no }}</strong>
             <span class="card-sex">{{ cow.sex || '—' }}</span>
           </div>
           <div class="card-body">
@@ -103,10 +122,16 @@ async function deleteCow(id: string) {
             <div class="card-row"><span class="card-label">Breed:</span><span>{{ cow.breed }}</span></div>
             <div class="card-row"><span class="card-label">Age:</span><span>{{ cow.birth_date ? calculateAge(cow.birth_date) : '—' }}</span></div>
             <div class="card-row">
+              <span class="card-label">Cull:</span>
+              <span
+                :class="['badge', cow.cull_status === '+' ? 'badge-cull' : 'badge-ok']"
+              >{{ cow.cull_status || '-' }}</span>
+            </div>
+            <div class="card-row">
               <span class="card-label">Pregnancy:</span>
               <span
-                :class="['badge', cow.pregnancy_result === 'Pregnant' ? 'badge-pregnant' : cow.pregnancy_result === 'Open' ? 'badge-open' : '']"
-              >{{ cow.pregnancy_result || '—' }}</span>
+                :class="['badge', cow.pregnancy_result === 'Pregnant' ? 'badge-pregnant' : 'badge-open']"
+              >{{ cow.pregnancy_result || 'Open' }}</span>
             </div>
           </div>
           <div class="card-actions">
@@ -226,6 +251,16 @@ async function deleteCow(id: string) {
 .badge-open {
   background: #f8d7da;
   color: #721c24;
+}
+
+.badge-cull {
+  background: #f8d7da;
+  color: #721c24;
+}
+
+.badge-ok {
+  background: #d4edda;
+  color: #155724;
 }
 
 .actions {

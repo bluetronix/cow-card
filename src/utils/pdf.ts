@@ -1,5 +1,5 @@
 import { jsPDF } from 'jspdf'
-import type { Cow, LactationEntry } from '../types'
+import type { Cow } from '../types'
 import { calculateAge, formatDate } from './age'
 import { db } from '../db/dexie'
 import logoPath from '../assets/logo.png'
@@ -38,23 +38,17 @@ const PADDED = (id_no: string) => {
 function buildCardHtml(cow: Cow, qrDataUrl: string, logoDataUrl: string): string {
   const animalId = PADDED(cow.id_no)
 
-  let lactEntries: LactationEntry[] = []
-  try {
-    const p = JSON.parse(cow.lactation_history || '[]')
-    lactEntries = Array.isArray(p) ? p : []
-  } catch { /* empty */ }
-
-  const lactRows = lactEntries.length > 0
-    ? lactEntries.map(e => `
-      <tr>
-        <td>${esc(e.number)}</td>
-        <td>${esc(formatDate(e.calving_date))}</td>
-        <td>${esc(e.yield_305d || '—')}</td>
-        <td>${esc(e.peak_yield || '—')}</td>
-        <td>${esc(e.total_yield || '—')}</td>
-        <td>${esc(e.remarks || '—')}</td>
-      </tr>`).join('')
-    : `<tr><td colspan="6" style="text-align:center;color:#999;padding:8px;font-size:11px">No lactation history recorded</td></tr>`
+  const hasLactData = cow.lactations > 0 || cow.calving_date || cow.peak_milk_yield || cow.total_lactation_yield || cow.projected_305d_milk_yield
+  const lactRows = hasLactData
+    ? `<tr>
+        <td>${esc(cow.lactations || '—')}</td>
+        <td>${esc(formatDate(cow.calving_date) || '—')}</td>
+        <td>${esc(cow.projected_305d_milk_yield ? cow.projected_305d_milk_yield + ' L' : '—')}</td>
+        <td>${esc(cow.peak_milk_yield ? cow.peak_milk_yield + ' L' : '—')}</td>
+        <td>${esc(cow.total_lactation_yield ? cow.total_lactation_yield + ' L' : '—')}</td>
+        <td></td>
+      </tr>`
+    : `<tr><td colspan="6" style="text-align:center;color:#999;padding:8px;font-size:11px">No lactation data recorded</td></tr>`
 
   const imgTag = cow.image_url
     ? `<img src="${esc(cow.image_url)}" style="width:100%;height:100%;object-fit:cover;position:absolute;top:0;left:0" />`
@@ -68,7 +62,7 @@ function buildCardHtml(cow: Cow, qrDataUrl: string, logoDataUrl: string): string
     ? '<span style="background:#5ea154;color:#fff;padding:2px 8px;border-radius:12px;font-size:9px;font-weight:700">PREGNANT</span>'
     : cow.pregnancy_result === 'Open'
     ? '<span style="background:#d62828;color:#fff;padding:2px 8px;border-radius:12px;font-size:9px;font-weight:700">OPEN</span>'
-    : esc(cow.pregnancy_result || '—')
+    : esc(cow.pregnancy_result || 'Open')
 
   const milkFields = [
     ['Current Daily Milk Yield', cow.current_daily_milk_yield ? `${cow.current_daily_milk_yield} L` : '—'],
@@ -84,9 +78,9 @@ function buildCardHtml(cow: Cow, qrDataUrl: string, logoDataUrl: string): string
   const mgmtFields = [
     ['Feeding Group', cow.feeding_group],
     ['Milking Group', cow.milking_group],
-    ['Pen / Barn No.', cow.pen_barn_no],
+    ['Barn Name', cow.barn_name], // <!-- column: barn_name (was pen_barn_no) -->
     ['Housing', cow.housing],
-    ['Cull Status', '—'],
+    ['Cull Status', cow.cull_status === '+' ? '+' : '-'], // <!-- column: cull_status -->
     ['Body Condition Score (BCS)', cow.body_condition_score ? `${cow.body_condition_score} / 5` : '—'],
     ['Remarks / Notes', cow.remarks],
   ].map(([label, val]) =>
@@ -94,27 +88,17 @@ function buildCardHtml(cow: Cow, qrDataUrl: string, logoDataUrl: string): string
 
   const healthFieldsLeft = [
     ['Medical Records', cow.medical_records],
+    ['Doctor Recommendations', cow.vet_recommendations], // <!-- column: vet_recommendations -->
     ['Dead Qtr / Teat', cow.dead_qtr_teat],
-    ['Mastitis History', cow.mastitis_history],
+    ['Mastitis History', cow.mastitis_history], // <!-- column: mastitis_history -->
     ['Vaccination', cow.vaccinations],
     ['Deworming', cow.deworming_dates],
+    ['Abortions', cow.abortion_count ?? '0'], // <!-- column: abortion_count -->
     ['Last Health Check', formatDate(cow.last_checkup_date) || formatDate(cow.updated_at)],
-    ['Next Due', '—'],
   ].map(([label, val]) =>
     `<tr><th>${esc(label)}</th><td>${esc(val || '—')}</td></tr>`).join('')
 
   const quarterStatus = cow.quarter_teat_status || 'All OK'
-
-  const isPregnant = cow.pregnancy_result === 'Pregnant'
-  const isLactating = cow.days_in_milk > 0
-  const isDry = cow.sex === 'Female' && cow.days_in_milk === 0
-  const isSick = cow.current_health_status === 'Sick' || cow.current_health_status === 'Under Treatment'
-
-  const legendItem = (color: string, label: string, active: boolean) =>
-    `<div style="display:flex;align-items:center;gap:6px;opacity:${active ? 1 : 0.35}">
-      <div style="width:12px;height:12px;border-radius:50%;background:${active ? color : '#d1d5db'}"></div>
-      <span style="font-weight:${active ? 700 : 500}">${label}</span>
-    </div>`
 
   const impDates = [
     ['Last Calving', formatDate(cow.calving_date)],
@@ -123,6 +107,34 @@ function buildCardHtml(cow: Cow, qrDataUrl: string, logoDataUrl: string): string
     ['Last Checkup', formatDate(cow.last_checkup_date)],
   ].map(([label, val]) =>
     `<tr><th style="width:60%">${esc(label)}</th><td>${esc(val || '—')}</td></tr>`).join('')
+
+  function getRedFlags(): { label: string; color: string }[] {
+    const flags: { label: string; color: string }[] = []
+    if (cow.cull_status === '+') flags.push({ label: 'Cull Candidate', color: '#d62828' })
+    if (cow.current_health_status === 'Sick') flags.push({ label: 'Sick', color: '#d62828' })
+    if (cow.current_health_status === 'Frequently Sick') flags.push({ label: 'Frequently Sick', color: '#d62828' })
+    if (cow.current_health_status === 'On Treatment') flags.push({ label: 'Under Treatment', color: '#b45309' })
+    if (cow.mastitis_history === 'Chronic (Never Recovers)') flags.push({ label: 'Chronic Mastitis', color: '#d62828' })
+    if (cow.mastitis_history === 'Regularly recovers') flags.push({ label: 'Recurrent Mastitis', color: '#b45309' })
+    if ((cow.abortion_count ?? 0) > 0) flags.push({ label: `${cow.abortion_count} Abortion(s)`, color: '#b45309' })
+    if (cow.dead_qtr_teat) flags.push({ label: `Dead Qtr: ${cow.dead_qtr_teat}`, color: '#b45309' })
+    if (cow.body_condition_score > 0 && cow.body_condition_score < 2) flags.push({ label: 'Low BCS', color: '#b45309' })
+    if (cow.sex === 'Female' && !cow.pregnancy_result && cow.lactations > 0) flags.push({ label: 'Open / Not Bred', color: '#b45309' })
+    if (cow.pregnancy_result === 'Pregnant' && !cow.expected_calving_date) flags.push({ label: 'No Due Date', color: '#b45309' })
+    if (Number(cow.days_in_milk) > 0 && Number(cow.current_daily_milk_yield) === 0) flags.push({ label: 'Not Milking', color: '#b45309' })
+    if (Number(cow.days_in_milk) > 400) flags.push({ label: 'High DIM', color: '#b45309' })
+    if (!cow.birth_date) flags.push({ label: 'Missing DOB', color: '#888' })
+    return flags
+  }
+
+  const redFlags = getRedFlags()
+  const redFlagHtml = redFlags.length > 0
+    ? redFlags.map(f => `
+      <div style="display:flex;align-items:center;gap:6px;padding:3px 8px">
+        <div style="width:8px;height:8px;border-radius:50%;background:${f.color};flex-shrink:0"></div>
+        <span style="font-size:10px;font-weight:600;color:${f.color}">${esc(f.label)}</span>
+      </div>`).join('')
+    : `<div style="padding:8px;text-align:center;font-size:10px;color:#999;font-style:italic">No alerts</div>`
 
   return `<!DOCTYPE html>
 <html lang="en"><head>
@@ -179,10 +191,9 @@ body{font-family:Arial,Helvetica,sans-serif;-webkit-font-smoothing:antialiased;b
       <div class="module">
         <div class="module-header" style="background:#0A4B29"><svg viewBox="0 0 24 24"><path d="M3 5v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2H5c-1.11 0-2 .9-2 2zm12 4c0 1.66-1.34 3-3 3s-3-1.34-3-3 1.34-3 3-3 3 1.34 3 3zm-9 8c0-2 4-3.1 6-3.1s6 1.1 6 3.1v1H6v-1z"/></svg>IDENTIFICATION</div>
         <table class="data-table"><tbody>
-          <tr><th>ID No.</th><td>${esc(cow.id_no)}</td></tr>
+          <tr><th>Card Number <!-- column: id_no --></th><td>${esc(cow.id_no)}</td></tr>
           <tr><th>Tag No.</th><td>${esc(cow.tag)}</td></tr>
           <tr><th>Collar No.</th><td>${esc(cow.collar_no || '—')}</td></tr>
-          <tr><th>RFID No.</th><td>${esc(cow.rfid_no || '—')}</td></tr>
           <tr><th>Date of Birth</th><td>${esc(formatDate(cow.birth_date) || '—')}</td></tr>
           <tr><th>Age</th><td>${cow.birth_date ? esc(calculateAge(cow.birth_date)) : '—'}</td></tr>
         </tbody></table>
@@ -192,8 +203,10 @@ body{font-family:Arial,Helvetica,sans-serif;-webkit-font-smoothing:antialiased;b
         <table class="data-table"><tbody>
           <tr><th>Breed / Type</th><td>${esc(cow.breed)}</td></tr>
           <tr><th>Colour</th><td>${esc(cow.colour)}</td></tr>
-          <tr><th>Sire (Bull Name)</th><td>${esc(cow.bull_name || '—')}</td></tr>
-          <tr><th>Dam (Mother Name)</th><td>${esc(cow.dam_id || '—')}</td></tr>
+          <tr><th>Sire ID <!-- column: sire_id (was bull_name) --></th><td>${esc(cow.sire_id || '—')}</td></tr>
+          <tr><th>Sire Breed <!-- column: sire_breed --></th><td>${esc(cow.sire_breed || '—')}</td></tr>
+          <tr><th>Dam ID <!-- column: dam_id --></th><td>${esc(cow.dam_id || '—')}</td></tr>
+          <tr><th>Dam Breed <!-- column: dam_breed --></th><td>${esc(cow.dam_breed || '—')}</td></tr>
           <tr><th>Origin</th><td>${esc(cow.origin || '—')}</td></tr>
           <tr><th></th><td></td></tr>
         </tbody></table>
@@ -262,17 +275,12 @@ body{font-family:Arial,Helvetica,sans-serif;-webkit-font-smoothing:antialiased;b
           <tbody style="color:#333;font-weight:500">${lactRows}</tbody>
         </table>
       </div>
-      <div class="s2 module">
-        <div class="module-header" style="background:#3B5B28">STATUS LEGEND</div>
-        <div style="padding:8px;flex:1;display:flex;flex-direction:column;justify-content:center;gap:6px;font-size:10px;font-weight:500;color:#333">
-          ${legendItem('#1e7b41', 'Pregnant', isPregnant)}
-          ${legendItem('#1069b3', 'Lactating', isLactating)}
-          ${legendItem('#ffb612', 'Dry', isDry)}
-          ${legendItem('#d62828', 'Sick / Treatment', isSick)}
-        </div>
-      </div>
       <div class="s3 module">
-        <div class="module-header" style="background:#1A4524"><svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:currentColor"><path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM7 10h5v5H7z"/></svg>IMPORTANT DATES</div>
+        <div class="module-header" style="background:#BA3232"><svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>RED FLAGS</div>
+        <div style="flex:1;display:flex;flex-direction:column;justify-content:center;padding:4px 0">${redFlagHtml}</div>
+      </div>
+      <div class="s2 module">
+        <div class="module-header" style="background:#1A4524"><svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:currentColor"><path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM7 10h5v5H7z"/></svg>DATES</div>
         <table class="data-table"><tbody>${impDates}</tbody></table>
       </div>
       <div class="s2" style="border:1px solid #d1d5db;border-radius:6px;padding:8px;display:flex;flex-direction:column;justify-content:space-between;background:#fff">

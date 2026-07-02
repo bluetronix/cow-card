@@ -7,6 +7,7 @@ import { fetchCowById } from '../db/turso'
 import { generateSummaryCard, generateDetailedCard, downloadPdf } from '../utils/pdf'
 import { calculateAge, formatDate } from '../utils/age'
 import type { Cow, DailyRecord } from '../types'
+import { showToast, formatError } from '../composables/useToast'
 
 const route = useRoute()
 const router = useRouter()
@@ -14,6 +15,8 @@ const { isLoggedIn } = useAuth()
 const authenticated = ref(false)
 const cow = ref<Cow | null>(null)
 const loading = ref(true)
+const downloadingSummary = ref(false)
+const downloadingDetailed = ref(false)
 const dailyRecords = ref<DailyRecord[]>([])
 
 onMounted(async () => {
@@ -35,16 +38,33 @@ onMounted(async () => {
 })
 
 async function downloadSummary() {
-  if (!cow.value) return
-  const doc = await generateSummaryCard(cow.value)
-  downloadPdf(doc, `cow_summary_${cow.value.id_no || cow.value.id}.pdf`)
+  if (!cow.value || downloadingSummary.value) return
+  downloadingSummary.value = true
+  try {
+    const doc = await generateSummaryCard(cow.value)
+    downloadPdf(doc, `cow_summary_${cow.value.id_no || cow.value.id}.pdf`)
+    showToast('Summary PDF downloaded', 'success')
+  } catch (e) {
+    showToast(formatError(e, 'Failed to generate summary PDF'), 'error')
+  } finally {
+    setTimeout(() => { downloadingSummary.value = false }, 1500)
+  }
 }
 
 async function downloadDetailed() {
-  if (!cow.value) return
-  const doc = await generateDetailedCard(cow.value)
-  downloadPdf(doc, `cow_detailed_${cow.value.id_no || cow.value.id}.pdf`)
+  if (!cow.value || downloadingDetailed.value) return
+  downloadingDetailed.value = true
+  try {
+    const doc = await generateDetailedCard(cow.value)
+    downloadPdf(doc, `cow_detailed_${cow.value.id_no || cow.value.id}.pdf`)
+    showToast('Detailed PDF downloaded', 'success')
+  } catch (e) {
+    showToast(formatError(e, 'Failed to generate detailed PDF'), 'error')
+  } finally {
+    setTimeout(() => { downloadingDetailed.value = false }, 1500)
+  }
 }
+
 </script>
 
 <template>
@@ -55,8 +75,8 @@ async function downloadDetailed() {
         <h1>{{ cow?.id_no || 'Cow Details' }}</h1>
       </div>
       <div v-if="authenticated" class="header-actions">
-        <button class="btn-pdf" @click="downloadSummary">Summary PDF</button>
-        <button class="btn-pdf detailed" @click="downloadDetailed">Detailed PDF</button>
+        <button class="btn-pdf" :disabled="downloadingSummary" @click="downloadSummary">{{ downloadingSummary ? '⏳ Downloading...' : 'Summary PDF' }}</button>
+        <button class="btn-pdf detailed" :disabled="downloadingDetailed" @click="downloadDetailed">{{ downloadingDetailed ? '⏳ Downloading...' : 'Detailed PDF' }}</button>
         <button class="btn-daily" @click="router.push(`/daily?cowId=${cow?.id}`)">Daily Record</button>
         <button class="btn-edit" @click="router.push(`/cows/${cow?.id}/edit`)">Edit</button>
       </div>
@@ -78,10 +98,9 @@ async function downloadDetailed() {
       <div class="card">
         <h3>Identity & General</h3>
         <div class="info-grid">
-          <div><strong>ID No:</strong> {{ cow.id_no }}</div>
+          <div><strong>Card Number <!-- column: id_no -->:</strong> {{ cow.id_no }}</div>
           <div><strong>Tag:</strong> {{ cow.tag }}</div>
           <div><strong>Collar No:</strong> {{ cow.collar_no || '—' }}</div>
-          <div><strong>RFID No:</strong> {{ cow.rfid_no || '—' }}</div>
           <div><strong>Name:</strong> {{ cow.name || '—' }}</div>
           <div><strong>Breed:</strong> {{ cow.breed }}</div>
           <div><strong>Sex:</strong> {{ cow.sex || '—' }}</div>
@@ -95,13 +114,15 @@ async function downloadDetailed() {
       <div v-if="cow.sex !== 'Male'" class="card">
         <h3>Breeding & Reproduction</h3>
         <div class="info-grid">
-          <div><strong>Dam (Mother Name):</strong> {{ cow.dam_id || '—' }}</div>
-          <div><strong>Bull:</strong> {{ cow.bull_name || '—' }}</div>
+          <div><strong>Dam ID <!-- column: dam_id -->:</strong> {{ cow.dam_id || '—' }}</div>
+          <div><strong>Dam Breed <!-- column: dam_breed -->:</strong> {{ cow.dam_breed || '—' }}</div>
+          <div><strong>Sire ID <!-- column: sire_id (was bull_name) -->:</strong> {{ cow.sire_id || '—' }}</div>
+          <div><strong>Sire Breed <!-- column: sire_breed -->:</strong> {{ cow.sire_breed || '—' }}</div>
           <div><strong>Lactations:</strong> {{ cow.lactations ?? '—' }}</div>
           <div><strong>Calving Date:</strong> {{ formatDate(cow.calving_date) || '—' }}</div>
           <div><strong>PD Date:</strong> {{ formatDate(cow.pd_date) || '—' }}</div>
           <div><strong>PD Group:</strong> {{ cow.pd_group || '—' }}</div>
-          <div><strong>Pregnancy:</strong> {{ cow.pregnancy_result || '—' }}</div>
+          <div><strong>Pregnancy:</strong> {{ cow.pregnancy_result || 'Open' }}</div>
           <div><strong>AI/Service Date:</strong> {{ formatDate(cow.ai_service_date) || '—' }}</div>
           <div><strong>Dry-off:</strong> {{ formatDate(cow.expected_dry_off_date) || '—' }}</div>
           <div><strong>Expected Calving:</strong> {{ formatDate(cow.expected_calving_date) || '—' }}</div>
@@ -126,9 +147,10 @@ async function downloadDetailed() {
         <div class="info-grid">
           <div><strong>Feeding Group:</strong> {{ cow.feeding_group || '—' }}</div>
           <div><strong>Milking Group:</strong> {{ cow.milking_group || '—' }}</div>
-          <div><strong>Pen / Barn No:</strong> {{ cow.pen_barn_no || '—' }}</div>
+          <div><strong>Barn Name <!-- column: barn_name (was pen_barn_no) -->:</strong> {{ cow.barn_name || '—' }}</div>
           <div><strong>Housing:</strong> {{ cow.housing || '—' }}</div>
           <div><strong>BCS:</strong> {{ cow.body_condition_score ?? '—' }}</div>
+          <div><strong>Cull Status <!-- column: cull_status -->:</strong> {{ cow.cull_status || '—' }}</div>
           <div class="full-width"><strong>Remarks:</strong> {{ cow.remarks || '—' }}</div>
         </div>
       </div>
@@ -138,10 +160,11 @@ async function downloadDetailed() {
         <div class="info-grid">
           <div class="full-width"><strong>Vaccinations:</strong> {{ cow.vaccinations || 'None' }}</div>
           <div class="full-width"><strong>Deworming:</strong> {{ cow.deworming_dates || 'None' }}</div>
-          <div class="full-width"><strong>Mastitis History:</strong> {{ cow.mastitis_history || 'None' }}</div>
+          <div class="full-width"><strong>Mastitis History <!-- column: mastitis_history -->:</strong> {{ cow.mastitis_history || 'None' }}</div>
           <div><strong>Dead Qtr-Teat:</strong> {{ cow.dead_qtr_teat || '—' }}</div>
           <div><strong>Quarter/Teat Status:</strong> {{ cow.quarter_teat_status || '—' }}</div>
           <div><strong>BCS:</strong> {{ cow.body_condition_score ?? '—' }}</div>
+          <div><strong>Abortions <!-- column: abortion_count -->:</strong> {{ cow.abortion_count ?? '—' }}</div>
         </div>
       </div>
 
@@ -156,6 +179,11 @@ async function downloadDetailed() {
       <div class="card">
         <h3>Medical Records</h3>
         <p class="medical-text">{{ cow.medical_records || 'No records' }}</p>
+      </div>
+
+      <div v-if="cow.vet_recommendations" class="card">
+        <h3>Doctor Recommendations <!-- column: vet_recommendations --></h3>
+        <p class="medical-text">{{ cow.vet_recommendations }}</p>
       </div>
 
       <div v-if="cow.current_health_status" class="card health-status-card">

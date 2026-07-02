@@ -3,7 +3,7 @@ import type { Cow, DailyRecord } from '../types'
 
 export function exportAllCowsCSV(cows: Cow[]): void {
   const csv = Papa.unparse(cows.map(c => ({
-    'ID No': c.id_no,
+    'Card Number': c.id_no,
     Tag: c.tag,
     Name: c.name,
     Breed: c.breed,
@@ -12,9 +12,15 @@ export function exportAllCowsCSV(cows: Cow[]): void {
     Age: c.birth_date,
     Origin: c.origin,
     Group: c.group_name,
+    'Dam ID': c.dam_id,
+    'Dam Breed': c.dam_breed,
+    'Sire ID': c.sire_id,
+    'Sire Breed': c.sire_breed,
     Lactations: c.lactations,
     'Pregnancy Result': c.pregnancy_result,
     'Health Status': c.current_health_status,
+    'Mastitis History': c.mastitis_history,
+    'Vet Recommendations': c.vet_recommendations,
     'Last Checkup': c.last_checkup_date,
     'Peak Milk Yield': c.peak_milk_yield,
     'Current Daily Yield': c.current_daily_milk_yield,
@@ -23,8 +29,10 @@ export function exportAllCowsCSV(cows: Cow[]): void {
     'Body Condition Score': c.body_condition_score,
     'Feeding Group': c.feeding_group,
     'Milking Group': c.milking_group,
-    'Pen/Barn': c.pen_barn_no,
+    'Barn Name': c.barn_name,
     Housing: c.housing,
+    'Cull Status': c.cull_status,
+    'Abortion Count': c.abortion_count,
     Remarks: c.remarks,
     'Issued Date': c.issued_date,
     'Issued By': c.issued_by,
@@ -53,7 +61,7 @@ export function exportDailyRecordsCSV(records: DailyRecord[]): void {
 
 export function exportCowSummaryCSV(cows: Cow[]): void {
   const data = cows.map(c => ({
-    'ID No': c.id_no,
+    'Card Number': c.id_no,
     Tag: c.tag,
     Name: c.name,
     Breed: c.breed,
@@ -62,8 +70,12 @@ export function exportCowSummaryCSV(cows: Cow[]): void {
     Age: c.birth_date,
     Origin: c.origin,
     Group: c.group_name,
+    'Dam ID': c.dam_id,
+    'Sire ID': c.sire_id,
     Lactations: c.lactations,
     'Pregnancy Result': c.pregnancy_result,
+    'Health Status': c.current_health_status,
+    'Cull Status': c.cull_status,
     'Peak Milk Yield': c.peak_milk_yield,
     'Current Daily Yield': c.current_daily_milk_yield,
     'Total Lactation Yield': c.total_lactation_yield,
