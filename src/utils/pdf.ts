@@ -446,3 +446,267 @@ export async function generateDetailedCard(cow: Cow, orientation: 'portrait' | '
 export function downloadPdf(doc: jsPDF, filename: string) {
   doc.save(filename)
 }
+
+function buildHerdSummaryHtml(data: ReturnType<typeof computeHerdData>): string {
+  const { cows, females, males, lactating, dry, pregnant, open, totalDaily, avgDaily, avgFat, avgProtein, totalLactation, peakAvg, healthy, onTreatment, sick, freqSick, cullCandidates, totalAbortions, upcomingCalvings, breedBreakdown, avgLactations, totalRecords, avgTemp, today } = data
+
+  const breedRows = breedBreakdown.map((b: { breed: string; count: number }) =>
+    `<tr><th>${esc(b.breed)}</th><td style="font-weight:700">${esc(b.count)}</td></tr>`
+  ).join('')
+
+  const breedHtml = breedBreakdown.length > 0
+    ? `<table class="data-table"><tbody>${breedRows}</tbody></table>`
+    : '<div style="padding:8px;text-align:center;font-size:10px;color:#999">No breed data</div>'
+
+  const healthRow = `
+    <div style="display:flex;flex-wrap:wrap;gap:6px;padding:8px">
+      <span style="background:#15803d;color:#fff;padding:3px 10px;border-radius:12px;font-size:10px;font-weight:700">Healthy ${healthy}</span>
+      <span style="background:#b45309;color:#fff;padding:3px 10px;border-radius:12px;font-size:10px;font-weight:700">On Tx ${onTreatment}</span>
+      <span style="background:#d62828;color:#fff;padding:3px 10px;border-radius:12px;font-size:10px;font-weight:700">Sick ${sick}</span>
+      <span style="background:#7c3aed;color:#fff;padding:3px 10px;border-radius:12px;font-size:10px;font-weight:700">Freq Sick ${freqSick}</span>
+    </div>
+    <div style="padding:4px 8px 8px;font-size:10px;color:#555;display:flex;gap:12px;flex-wrap:wrap">
+      <span>🚩 Cull: <strong>${cullCandidates}</strong></span>
+      <span>💊 Abortions: <strong>${totalAbortions}</strong></span>
+      <span>📅 Calvings (30d): <strong>${upcomingCalvings}</strong></span>
+    </div>`
+
+  return `<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="UTF-8">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:Arial,Helvetica,sans-serif;-webkit-font-smoothing:antialiased;background:#e5e7eb}
+.card{width:1050px;margin:0 auto;background:#fff;border:1px solid #d1d5db;border-radius:16px;overflow:hidden;box-shadow:0 4px 6px rgba(0,0,0,0.1)}
+.header{display:flex;justify-content:space-between;align-items:center;padding:16px 24px;border-bottom:1px solid #d1d5db}
+.body{padding:12px;display:flex;flex-direction:column;gap:10px}
+.grid{display:grid;gap:10px}
+.cols-4{grid-template-columns:repeat(4,1fr)}
+.cols-3{grid-template-columns:repeat(3,1fr)}
+.cols-12{grid-template-columns:repeat(12,1fr)}
+.s3{grid-column:span 3}
+.s4{grid-column:span 4}
+.s5{grid-column:span 5}
+.s6{grid-column:span 6}
+.module{border:1px solid #d1d5db;border-radius:6px;overflow:hidden;background:#fff;display:flex;flex-direction:column}
+.module-header{display:flex;align-items:center;gap:6px;padding:4px 8px;color:#fff;font-size:11px;font-weight:700;text-transform:uppercase}
+.module-header svg{width:16px;height:16px;fill:currentColor;flex-shrink:0}
+.data-table{width:100%;border-collapse:collapse;flex:1}
+.data-table th,.data-table td{border:1px solid #d1d5db;padding:3px 8px;font-size:10px;text-align:left;color:#111827}
+.data-table th{font-weight:700;width:45%;background:#fff}
+.data-table td{font-weight:500;background:#fff}
+.data-table tr:last-child th,.data-table tr:last-child td{border-bottom:none}
+.footer{background:#09441D;color:#fff;padding:10px 24px;display:flex;justify-content:space-between;align-items:center;font-size:10px}
+.kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;padding:8px}
+.kpi-box{text-align:center;padding:8px 4px;background:#f8f9fa;border-radius:6px}
+.kpi-val{display:block;font-size:18px;font-weight:900;color:#0A4B29;line-height:1.2}
+.kpi-lbl{display:block;font-size:8px;text-transform:uppercase;color:#777;margin-top:2px;letter-spacing:0.5px}
+</style>
+</head><body style="padding:8px;display:flex;justify-content:center">
+<div class="card">
+  <div class="header">
+    <div style="flex:1;display:flex;align-items:center">
+      <div style="color:#0A4B29;font-weight:900;font-size:18px">BASHE DAIRY FARM</div>
+    </div>
+    <div style="text-align:center;flex:1">
+      <div style="font-family:'Arial Black',Arial,sans-serif;font-size:36px;font-weight:900;color:#0A4B29;letter-spacing:2px;line-height:1">HERD SUMMARY</div>
+      <div style="display:flex;align-items:center;justify-content:center;margin-top:4px"><div style="height:1px;width:48px;background:#0A4B29"></div><svg width="20" height="20" fill="#0A4B29" viewBox="0 0 24 24"><path d="M20 9h-2V7c0-1.1-.9-2-2-2h-3V4c0-1.1-.9-2-2-2h-2C7.9 2 7 2.9 7 4v1H4c-1.1 0-2 .9-2 2v2H0v2h2v5c0 1.1.9 2 2 2h1v3h2v-3h10v3h2v-3h1c1.1 0 2-.9 2-2v-5h2V9h-2z"/></svg><div style="height:1px;width:48px;background:#0A4B29"></div></div>
+    </div>
+    <div style="flex:1;text-align:right;color:#666;font-size:11px;font-weight:600">
+      ${esc(today)}
+    </div>
+  </div>
+
+  <div class="body">
+    <div class="kpi-grid">
+      <div class="kpi-box"><span class="kpi-val">${cows}</span><span class="kpi-lbl">Total Cows</span></div>
+      <div class="kpi-box"><span class="kpi-val">${females}</span><span class="kpi-lbl">Females</span></div>
+      <div class="kpi-box"><span class="kpi-val">${males}</span><span class="kpi-lbl">Males</span></div>
+      <div class="kpi-box"><span class="kpi-val">${lactating}</span><span class="kpi-lbl">Lactating</span></div>
+      <div class="kpi-box"><span class="kpi-val">${dry}</span><span class="kpi-lbl">Dry</span></div>
+      <div class="kpi-box"><span class="kpi-val">${pregnant}</span><span class="kpi-lbl">Pregnant</span></div>
+      <div class="kpi-box"><span class="kpi-val">${open}</span><span class="kpi-lbl">Open</span></div>
+      <div class="kpi-box"><span class="kpi-val">${avgLactations}</span><span class="kpi-lbl">Avg Lact</span></div>
+    </div>
+
+    <div class="grid cols-3">
+      <div class="s1 module">
+        <div class="module-header" style="background:#085482"><svg viewBox="0 0 24 24"><path d="M7 2v20h10V2H7zm8 18H9v-2h6v2zm0-4H9V6h6v10z"/></svg>MILK PRODUCTION</div>
+        <table class="data-table"><tbody>
+          <tr><th>Total Daily Yield</th><td>${totalDaily.toFixed(0)} L</td></tr>
+          <tr><th>Avg / Cow</th><td>${avgDaily} L</td></tr>
+          <tr><th>Total Lactation Yield</th><td>${totalLactation.toFixed(0)} L</td></tr>
+          <tr><th>Avg Peak Yield</th><td>${peakAvg} L</td></tr>
+          <tr><th>Avg Fat %</th><td>${avgFat}%</td></tr>
+          <tr><th>Avg Protein %</th><td>${avgProtein}%</td></tr>
+        </tbody></table>
+      </div>
+
+      <div class="s1 module">
+        <div class="module-header" style="background:#BA3232"><svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-1.99.9-1.99 2L3 19c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-2 10h-4v4h-2v-4H7v-2h4V7h2v4h4v2z"/></svg>HEALTH STATUS</div>
+        ${healthRow}
+      </div>
+
+      <div class="s1 module">
+        <div class="module-header" style="background:#895A2A"><svg viewBox="0 0 24 24"><path d="M12 3L4 9v12h16V9l-8-6zm0 2.5l6 4.5v9h-12v-9l6-4.5z"/></svg>REPRODUCTION</div>
+        <table class="data-table"><tbody>
+          <tr><th>Pregnant</th><td style="font-weight:700;color:#155724">${pregnant}</td></tr>
+          <tr><th>Open</th><td style="font-weight:700;color:#721c24">${open}</td></tr>
+          <tr><th>Avg Lactations</th><td>${avgLactations}</td></tr>
+          <tr><th>Upcoming Calvings (30d)</th><td style="font-weight:700">${upcomingCalvings}</td></tr>
+        </tbody></table>
+      </div>
+    </div>
+
+    <div class="grid cols-12">
+      <div class="s6 module">
+        <div class="module-header" style="background:#0A4B29"><svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/></svg>BREED DISTRIBUTION</div>
+        ${breedHtml}
+      </div>
+      <div class="s3 module">
+        <div class="module-header" style="background:#0A4B29"><svg viewBox="0 0 24 24"><path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM7 10h5v5H7z"/></svg>RECORDS</div>
+        <table class="data-table"><tbody>
+          <tr><th>Daily Records Logged</th><td>${totalRecords}</td></tr>
+          <tr><th>Avg Temperature</th><td>${avgTemp ? avgTemp + '°C' : '—'}</td></tr>
+        </tbody></table>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <div style="display:flex;align-items:center;gap:8px">
+      <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+      <div style="line-height:1.3"><div style="font-weight:700;font-size:11px">Bashe Dairy Farm</div><div style="color:#B3D8C4">P.O. Box 74, Tabora, Tanzania</div></div>
+    </div>
+    <div style="display:flex;gap:16px;align-items:center;font-size:10px">
+      <div style="display:flex;align-items:center;gap:4px"><svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/></svg>+255 612 297 675</div>
+      <div style="display:flex;align-items:center;gap:4px"><svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/></svg>info@bdf.co.tz</div>
+      <div style="display:flex;align-items:center;gap:4px"><svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.22.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.52c-.22-.72-1.07-1.31-1.9-1.41V15c0-1.1-.9-2-2-2h-2v-2h2c1.1 0 2-.9 2-2V7.41c1.8 1.48 3 3.75 3 6.59 0 1.5-.4 2.92-1.1 4.08z"/></svg>www.bdf.co.tz</div>
+    </div>
+    <div style="display:flex;align-items:center;gap:6px;font-style:italic;color:#B3D8C4">
+      <div style="text-align:right;line-height:1.2;font-size:11px">Thank you for<br>caring for our animals!</div>
+      <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z"/></svg>
+    </div>
+  </div>
+</div>
+</body></html>`
+}
+
+function computeHerdData(cows: any[], records: any[]) {
+  const females = cows.filter(c => c.sex === 'Female').length
+  const males = cows.filter(c => c.sex === 'Male').length
+  let lactating = 0, dry = 0, pregnant = 0, open = 0
+  let totalDaily = 0, totalLactation = 0, peakSum = 0, peakCount = 0
+  let fatSum = 0, fatCount = 0, proteinSum = 0, proteinCount = 0
+  let lactSum = 0
+  const healthCounts = { healthy: 0, onTreatment: 0, sick: 0, frequentlySick: 0 }
+  let cullCandidates = 0, totalAbortions = 0, upcomingCalvings = 0
+  const breedMap = new Map<string, number>()
+
+  for (const c of cows) {
+    if (c.sex === 'Female') {
+      const isLactating = (c.days_in_milk ?? 0) > 0 || (c.current_daily_milk_yield ?? 0) > 0
+      if (isLactating) lactating++; else dry++
+      if (c.pregnancy_result === 'Pregnant') pregnant++
+      else if (c.sex === 'Female') open++
+      totalDaily += c.current_daily_milk_yield || 0
+      totalLactation += c.total_lactation_yield || 0
+      if (c.peak_milk_yield) { peakSum += c.peak_milk_yield; peakCount++ }
+      lactSum += c.lactations || 0
+      if (c.expected_calving_date) {
+        const days = (new Date(c.expected_calving_date).getTime() - Date.now()) / 86400000
+        if (days >= 0 && days <= 30) upcomingCalvings++
+      }
+    }
+    if (c.fat_percent && c.fat_percent > 0) { fatSum += c.fat_percent; fatCount++ }
+    if (c.protein_percent && c.protein_percent > 0) { proteinSum += c.protein_percent; proteinCount++ }
+    const s = c.current_health_status
+    if (s === 'Healthy') healthCounts.healthy++
+    else if (s === 'On Treatment') healthCounts.onTreatment++
+    else if (s === 'Sick') healthCounts.sick++
+    else if (s === 'Frequently Sick') healthCounts.frequentlySick++
+    if (c.cull_status === '+') cullCandidates++
+    totalAbortions += c.abortion_count || 0
+    if (c.breed) breedMap.set(c.breed, (breedMap.get(c.breed) || 0) + 1)
+  }
+
+  let tempSum = 0, tempCount = 0
+  for (const r of records) {
+    if (r.temperature && r.temperature > 0) { tempSum += r.temperature; tempCount++ }
+  }
+
+  return {
+    cows: cows.length, females, males, lactating, dry, pregnant,
+    open: females - pregnant,
+    totalDaily, avgDaily: females > 0 ? Math.round((totalDaily / females) * 10) / 10 : 0,
+    avgFat: fatCount > 0 ? Math.round((fatSum / fatCount) * 10) / 10 : 0,
+    avgProtein: proteinCount > 0 ? Math.round((proteinSum / proteinCount) * 10) / 10 : 0,
+    totalLactation, peakAvg: peakCount > 0 ? Math.round((peakSum / peakCount) * 10) / 10 : 0,
+    healthy: healthCounts.healthy, onTreatment: healthCounts.onTreatment,
+    sick: healthCounts.sick, freqSick: healthCounts.frequentlySick,
+    cullCandidates, totalAbortions, upcomingCalvings,
+    breedBreakdown: Array.from(breedMap.entries()).map(([breed, count]) => ({ breed, count })).sort((a, b) => b.count - a.count),
+    avgLactations: females > 0 ? Math.round((lactSum / females) * 10) / 10 : 0,
+    totalRecords: records.length,
+    avgTemp: tempCount > 0 ? Math.round((tempSum / tempCount) * 10) / 10 : 0,
+    today: new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
+  }
+}
+
+export async function generateHerdSummaryPdf(orientation: 'portrait' | 'landscape' = 'landscape'): Promise<jsPDF> {
+  const cows = await db.cows.toArray()
+  let records: any[] = []
+  try { records = await db.dailyRecords.toArray() } catch { /* table may not exist */ }
+
+  const data = computeHerdData(cows, records)
+  const html = buildHerdSummaryHtml(data)
+
+  const container = document.createElement('div')
+  container.style.position = 'fixed'
+  container.style.left = '-9999px'
+  container.style.top = '0'
+  container.style.width = '1050px'
+  container.style.zIndex = '-1'
+  container.innerHTML = html
+  document.body.appendChild(container)
+
+  const cardEl = container.querySelector('.card') as HTMLElement
+  if (!cardEl) {
+    document.body.removeChild(container)
+    const doc = new jsPDF({ orientation, unit: 'mm', format: 'a4' })
+    doc.text('Error generating herd summary card', 10, 10)
+    return doc
+  }
+
+  await new Promise(r => setTimeout(r, 300))
+
+  const canvas = await html2canvas(cardEl, {
+    scale: 2,
+    useCORS: true,
+    allowTaint: true,
+    backgroundColor: '#ffffff',
+    width: 1050,
+  })
+
+  document.body.removeChild(container)
+
+  const imgData = canvas.toDataURL('image/jpeg', 0.92)
+  const doc = new jsPDF({ orientation, unit: 'mm', format: 'a4' })
+  const pw = orientation === 'landscape' ? 297 : 210
+  const ph = orientation === 'landscape' ? 210 : 297
+
+  const margin = 5
+  const imgWidth = pw - margin * 2
+  const imgHeight = (canvas.height / canvas.width) * imgWidth
+  const maxHeight = ph - margin * 2
+
+  if (imgHeight > maxHeight) {
+    const s = maxHeight / imgHeight
+    doc.addImage(imgData, 'JPEG', margin, margin, imgWidth * s, imgHeight * s)
+  } else {
+    const yOffset = margin + (maxHeight - imgHeight) / 2
+    doc.addImage(imgData, 'JPEG', margin, yOffset, imgWidth, imgHeight)
+  }
+
+  return doc
+}
