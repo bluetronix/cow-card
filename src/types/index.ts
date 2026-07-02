@@ -1,4 +1,4 @@
-export type HealthStatus = 'Healthy' | 'Sick' | 'Under Treatment' | ''
+export type HealthStatus = 'Healthy' | 'On Treatment' | 'Sick' | 'Frequently Sick' | ''
 
 export interface DailyRecord {
   id: string
@@ -49,8 +49,10 @@ export interface Cow {
   origin: string
   birth_date: string
   group_name: string
-  dam_id: string
-  bull_name: string
+  dam_id: string                          // column: dam_id
+  dam_breed: string                       // new
+  sire_id: string                         // column: sire_id (was bull_name)
+  sire_breed: string                      // new
   lactations: number
   calving_date: string
   pd_date: string
@@ -73,10 +75,13 @@ export interface Cow {
   dead_qtr_teat: string
   quarter_teat_status: string
   medical_records: string
+  vet_recommendations: string              // new
   feeding_group: string
   milking_group: string
-  pen_barn_no: string
+  barn_name: string                       // column: barn_name (was pen_barn_no)
   housing: string
+  cull_status: '+' | '-' | ''            // new, default '-'
+  abortion_count: number                 // new, default 0
   remarks: string
   issued_date: string
   issued_by: string
@@ -88,4 +93,10 @@ export interface Cow {
   current_health_status: HealthStatus
   last_checkup_date: string
 }
+export const BREEDS = ['Holstein Friesian', 'Ayrshire', 'Jersey', 'Cross', 'Boran', 'Other'] as const
+export const COLOURS = ['Black and White', 'Brown and White', 'Brown', 'Black and Brown', 'Black', 'White', 'Red', 'Grey', 'Other'] as const
+export const LACTATION_OPTIONS = [1,2,3,4,5,6,7,8,9,10] as const
+export const PD_GROUP_OPTIONS = ['Late', 'Early'] as const
+export const MASTITIS_OPTIONS = ['None', 'Regularly recovers', 'Chronic (Never Recovers)'] as const
+export const HEALTH_STATUS_OPTIONS = ['Healthy', 'On Treatment', 'Sick', 'Frequently Sick'] as const
 export type PregnancyResult = 'Pregnant' | 'Open' | ''

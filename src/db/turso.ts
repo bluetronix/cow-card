@@ -1,5 +1,6 @@
 import { createClient } from '@libsql/client/web'
 import type { Cow, DailyRecord } from '../types'
+import { formatError } from '../composables/useToast'
 
 const TURSO_URL = import.meta.env.VITE_TURSO_URL || ''
 const TURSO_TOKEN = import.meta.env.VITE_TURSO_AUTH_TOKEN || ''
@@ -78,32 +79,34 @@ export async function syncCow(cow: Cow): Promise<boolean> {
     await turso!.execute({
       sql: `INSERT OR REPLACE INTO cows (
         id, user_id, id_no, tag, collar_no, rfid_no, name, sex, breed, colour, origin,
-        birth_date, group_name, dam_id, bull_name, lactations, calving_date,
+        birth_date, group_name, dam_id, dam_breed, sire_id, sire_breed, lactations, calving_date,
         pd_date, pd_group, pregnancy_result, ai_service_date,
         expected_dry_off_date, expected_calving_date,
         days_in_milk, peak_milk_yield, current_daily_milk_yield, total_lactation_yield,
         fat_percent, protein_percent, projected_305d_milk_yield,
         vaccinations, deworming_dates, mastitis_history, body_condition_score,
-        dead_qtr_teat, quarter_teat_status, medical_records,
-        feeding_group, milking_group, pen_barn_no, housing, remarks,
+        dead_qtr_teat, quarter_teat_status, medical_records, vet_recommendations,
+        feeding_group, milking_group, barn_name, housing, cull_status, abortion_count, remarks,
         issued_date, issued_by, image_url, lactation_history,
         current_health_status, last_checkup_date,
         created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       args: [
         cow.id, cow.user_id, cow.id_no, cow.tag, cow.collar_no, cow.rfid_no, cow.name,
         cow.sex, cow.breed, cow.colour, cow.origin, cow.birth_date, cow.group_name,
-        cow.dam_id, cow.bull_name, cow.lactations, cow.calving_date,
-        cow.pd_date, cow.pd_group, cow.pregnancy_result, cow.ai_service_date,
-        cow.expected_dry_off_date, cow.expected_calving_date,
-        cow.days_in_milk, cow.peak_milk_yield, cow.current_daily_milk_yield, cow.total_lactation_yield,
-        cow.fat_percent, cow.protein_percent, cow.projected_305d_milk_yield,
-        cow.vaccinations, cow.deworming_dates, cow.mastitis_history, cow.body_condition_score,
-        cow.dead_qtr_teat, cow.quarter_teat_status, cow.medical_records,
-        cow.feeding_group, cow.milking_group, cow.pen_barn_no, cow.housing, cow.remarks,
-        cow.issued_date, cow.issued_by, cow.image_url, cow.lactation_history,
-        cow.current_health_status, cow.last_checkup_date,
-        cow.created_at, cow.updated_at
+        cow.dam_id, cow.dam_breed || '', cow.sire_id || '', cow.sire_breed || '', cow.lactations, cow.calving_date,
+        cow.pd_date || '', cow.pd_group || '', cow.pregnancy_result || 'Open', cow.ai_service_date || '',
+        cow.expected_dry_off_date || '', cow.expected_calving_date || '',
+        (cow.days_in_milk ?? 0), (cow.peak_milk_yield ?? 0), (cow.current_daily_milk_yield ?? 0), (cow.total_lactation_yield ?? 0),
+        (cow.fat_percent ?? 0), (cow.protein_percent ?? 0), (cow.projected_305d_milk_yield ?? 0),
+        cow.vaccinations || '', cow.deworming_dates || '', cow.mastitis_history || '', (cow.body_condition_score ?? 0),
+        cow.dead_qtr_teat || '', cow.quarter_teat_status || '', cow.medical_records || '',
+        cow.vet_recommendations || '',
+        cow.feeding_group || '', cow.milking_group || '', cow.barn_name || '', cow.housing || '',
+        cow.cull_status || '-', cow.abortion_count ?? 0, cow.remarks || '',
+        cow.issued_date || '', cow.issued_by || '', cow.image_url || '', cow.lactation_history || '',
+        cow.current_health_status || '', cow.last_checkup_date || '',
+        cow.created_at || '', cow.updated_at || ''
       ]
     })
     return true
@@ -134,7 +137,7 @@ export async function loginUser(username: string, password: string): Promise<Aut
   } catch (e: any) {
     const msg = String(e?.message || e || '')
     console.error('Turso login error:', msg)
-    return { success: false, error: formatError(msg) }
+    return { success: false, error: formatError(msg, 'Login failed. Check your connection.') }
   }
 }
 
@@ -154,7 +157,7 @@ export async function registerUser(id: string, username: string, password: strin
     if (msg.includes('UNIQUE') || msg.includes('unique') || msg.includes('already exists')) {
       return { success: false, error: 'Username already exists' }
     }
-    return { success: false, error: formatError(msg) }
+    return { success: false, error: formatError(msg, 'Registration failed.') }
   }
 }
 
@@ -185,7 +188,9 @@ export async function fetchCows(): Promise<Cow[]> {
         birth_date: String(r.birth_date || ''),
         group_name: String(r.group_name || ''),
         dam_id: String(r.dam_id || ''),
-        bull_name: String(r.bull_name || ''),
+        dam_breed: String(r.dam_breed || ''),
+        sire_id: String(r.sire_id || ''),
+        sire_breed: String(r.sire_breed || ''),
         lactations: Number(r.lactations ?? 0),
         calving_date: String(r.calving_date || ''),
         pd_date: String(r.pd_date || ''),
@@ -208,10 +213,13 @@ export async function fetchCows(): Promise<Cow[]> {
         dead_qtr_teat: String(r.dead_qtr_teat || ''),
         quarter_teat_status: String(r.quarter_teat_status || ''),
         medical_records: String(r.medical_records || ''),
+        vet_recommendations: String(r.vet_recommendations || ''),
         feeding_group: String(r.feeding_group || ''),
         milking_group: String(r.milking_group || ''),
-        pen_barn_no: String(r.pen_barn_no || ''),
+        barn_name: String(r.barn_name || ''),
         housing: String(r.housing || ''),
+        cull_status: (String(r.cull_status || '-') as Cow['cull_status']),
+        abortion_count: Number(r.abortion_count ?? 0),
         remarks: String(r.remarks || ''),
         issued_date: String(r.issued_date || ''),
         issued_by: String(r.issued_by || ''),
@@ -230,15 +238,7 @@ export async function fetchCows(): Promise<Cow[]> {
   }
 }
 
-function formatError(msg: string): string {
-  if (msg.includes('Failed to fetch') || msg.includes('NetworkError') || msg.includes('fetch')) {
-    return 'Cannot reach database. Check your Turso URL and connection.'
-  }
-  if (msg.includes('Unauthorized') || msg.includes('auth')) {
-    return 'Turso authentication failed. Check your VITE_TURSO_AUTH_TOKEN.'
-  }
-  return msg
-}
+// formatError is imported from composables/useToast
 
 export async function fetchCowById(id: string): Promise<Cow | null> {
   if (!isConnected()) return null
@@ -264,7 +264,9 @@ export async function fetchCowById(id: string): Promise<Cow | null> {
       birth_date: String(r.birth_date || ''),
       group_name: String(r.group_name || ''),
       dam_id: String(r.dam_id || ''),
-      bull_name: String(r.bull_name || ''),
+      dam_breed: String(r.dam_breed || ''),
+      sire_id: String(r.sire_id || ''),
+      sire_breed: String(r.sire_breed || ''),
       lactations: Number(r.lactations ?? 0),
       calving_date: String(r.calving_date || ''),
       pd_date: String(r.pd_date || ''),
@@ -287,10 +289,13 @@ export async function fetchCowById(id: string): Promise<Cow | null> {
       dead_qtr_teat: String(r.dead_qtr_teat || ''),
       quarter_teat_status: String(r.quarter_teat_status || ''),
       medical_records: String(r.medical_records || ''),
+      vet_recommendations: String(r.vet_recommendations || ''),
       feeding_group: String(r.feeding_group || ''),
       milking_group: String(r.milking_group || ''),
-      pen_barn_no: String(r.pen_barn_no || ''),
+      barn_name: String(r.barn_name || ''),
       housing: String(r.housing || ''),
+      cull_status: (String(r.cull_status || '-') as Cow['cull_status']),
+      abortion_count: Number(r.abortion_count ?? 0),
       remarks: String(r.remarks || ''),
       issued_date: String(r.issued_date || ''),
       issued_by: String(r.issued_by || ''),

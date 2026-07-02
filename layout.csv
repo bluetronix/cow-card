@@ -1,0 +1,17 @@
+Idx,Header,DB Field
+0,Cow ID,tag
+1,Tag,collar_no (match key)
+2,Grp,feeding_group (group_name)
+3,Group,milking_group
+4,Colour,colour
+5,(blank),breed
+6,Origin,origin
+7,Age,birth_date
+8,Gyn status,pregnancy_result
+9,Last PD test,pd_date
+10,Pregnancy status,info only
+11,Expected calving,expected_calving_date
+12,Calving date,calving_date
+13,Daily avg yield,current_daily_milk_yield
+14,Lact Number,lactations
+15,DIM,days_in_milk

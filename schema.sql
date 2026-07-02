@@ -23,13 +23,15 @@ CREATE TABLE IF NOT EXISTS cows (
   origin TEXT DEFAULT '',
   birth_date TEXT DEFAULT '',
   group_name TEXT DEFAULT '',
-  dam_id TEXT DEFAULT '',
-  bull_name TEXT DEFAULT '',
+  dam_id TEXT DEFAULT '',                    <!-- column: dam_id -->
+  dam_breed TEXT DEFAULT '',                 <!-- new -->
+  sire_id TEXT DEFAULT '',                   <!-- column: sire_id (was bull_name) -->
+  sire_breed TEXT DEFAULT '',                <!-- new -->
   lactations INTEGER DEFAULT 0,
   calving_date TEXT DEFAULT '',
   pd_date TEXT DEFAULT '',
   pd_group TEXT DEFAULT '',
-  pregnancy_result TEXT DEFAULT '',
+  pregnancy_result TEXT DEFAULT 'Open',
   ai_service_date TEXT DEFAULT '',
   expected_dry_off_date TEXT DEFAULT '',
   expected_calving_date TEXT DEFAULT '',
@@ -47,10 +49,13 @@ CREATE TABLE IF NOT EXISTS cows (
   dead_qtr_teat TEXT DEFAULT '',
   quarter_teat_status TEXT DEFAULT '',
   medical_records TEXT DEFAULT '',
+  vet_recommendations TEXT DEFAULT '',     <!-- new -->
   feeding_group TEXT DEFAULT '',
   milking_group TEXT DEFAULT '',
-  pen_barn_no TEXT DEFAULT '',
+  barn_name TEXT DEFAULT '',                 <!-- column: barn_name (was pen_barn_no) -->
   housing TEXT DEFAULT '',
+  cull_status TEXT DEFAULT '-',             <!-- new, '+' or '-', default '-' -->
+  abortion_count INTEGER DEFAULT 0,          <!-- new -->
   remarks TEXT DEFAULT '',
   issued_date TEXT DEFAULT '',
   issued_by TEXT DEFAULT '',

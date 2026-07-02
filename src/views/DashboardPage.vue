@@ -3,6 +3,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuth } from '../stores/auth'
 import { getPendingCount, syncPendingRecords, pullFromTurso } from '../utils/sync'
+import { showToast, formatError } from '../composables/useToast'
 
 const router = useRouter()
 const { currentUser, fullName, logout } = useAuth()
@@ -10,10 +11,8 @@ const pendingCount = ref(0)
 const pendingDaily = ref(0)
 const syncing = ref(false)
 const pulling = ref(false)
-const syncResult = ref('')
-const pullResult = ref('')
 
-const allSynced = computed(() => pendingCount.value === 0 && pendingDaily.value === 0 && syncResult.value === '')
+const hasPending = computed(() => pendingCount.value > 0 || pendingDaily.value > 0)
 
 onMounted(async () => {
   const p = await getPendingCount()
@@ -36,15 +35,18 @@ function handleTileClick(tile: { action?: string; route?: string }) {
 
 async function handleSync() {
   syncing.value = true
-  syncResult.value = ''
   try {
     const res = await syncPendingRecords()
-    syncResult.value = `Done: ${res.cows} cows, ${res.daily} records synced`
+    if (res.cows > 0 || res.daily > 0) {
+      showToast(`${res.cows} cow(s), ${res.daily} record(s) synced to cloud`, 'success')
+    } else if (pendingCount.value === 0 && pendingDaily.value === 0) {
+      showToast('No pending records to sync', 'info')
+    }
     const p = await getPendingCount()
     pendingCount.value = p.cows
     pendingDaily.value = p.daily
-  } catch {
-    syncResult.value = 'Sync failed'
+  } catch (e) {
+    showToast(formatError(e, 'Sync failed. Data saved locally.'), 'error')
   } finally {
     syncing.value = false
   }
@@ -52,17 +54,18 @@ async function handleSync() {
 
 async function handlePull() {
   pulling.value = true
-  pullResult.value = ''
   try {
     const res = await pullFromTurso()
-    console.log('[handlePull] result:', res)
-    pullResult.value = `Imported: ${res.cows} cows, ${res.daily} records`
+    if (res.cows > 0 || res.daily > 0) {
+      showToast(`Imported ${res.cows} cow(s), ${res.daily} record(s) from cloud`, 'success')
+    } else {
+      showToast('Cloud data is up to date', 'info')
+    }
     const p = await getPendingCount()
     pendingCount.value = p.cows
     pendingDaily.value = p.daily
   } catch (e) {
-    console.error('[handlePull] error:', e)
-    pullResult.value = 'Import failed'
+    showToast(formatError(e, 'Failed to pull from cloud.'), 'error')
   } finally {
     pulling.value = false
   }
@@ -135,23 +138,21 @@ const tiles = [
           <p>{{ tile.description }}</p>
           <div v-if="tile.action === 'sync'" class="sync-actions">
             <div class="sync-row">
-              <span v-if="pendingCount > 0" class="sync-count">{{ pendingCount }} pending</span>
+              <span v-if="hasPending" class="sync-count">{{ pendingCount }} cows, {{ pendingDaily }} records pending</span>
               <button
-                v-if="pendingCount > 0"
+                v-if="hasPending"
                 class="sync-now-btn"
                 :disabled="syncing"
                 @click.stop="handleSync()"
               >
                 {{ syncing ? 'Syncing...' : 'Sync Now' }}
               </button>
-              <span v-if="syncResult" class="sync-result">{{ syncResult }}</span>
-              <span v-if="allSynced" class="sync-ok">All synced</span>
+              <span v-else class="sync-ok">All synced ✓</span>
             </div>
             <div class="sync-row">
               <button class="pull-btn" :disabled="pulling" @click.stop="handlePull()">
                 {{ pulling ? 'Pulling...' : 'Pull from Cloud' }}
               </button>
-              <span v-if="pullResult" class="pull-result">{{ pullResult }}</span>
             </div>
           </div>
         </div>
@@ -266,14 +267,10 @@ const tiles = [
   opacity: 0.6;
   cursor: not-allowed;
 }
-.sync-result {
-  color: #0e6655;
-  font-weight: 600;
-  font-size: 0.8rem;
-}
 .sync-ok {
   color: #0e6655;
   font-weight: 600;
+  font-size: 0.85rem;
 }
 .tile-sync {
   cursor: default;
@@ -298,10 +295,5 @@ const tiles = [
 .pull-btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
-}
-.pull-result {
-  color: #1a5276;
-  font-weight: 600;
-  font-size: 0.8rem;
 }
 </style>

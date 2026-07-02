@@ -1,0 +1,46 @@
+Cow ID,Tag,Grp number,Group name,Colour,,Origin,Age,Gyn status,Last PD test,Pregnancy status,Expected calving date,Calving date,Daily average yield,Lact Number,DIM,Dead Quarter,Health status,Medical record,Avg. weight
+17,111046878,3,Low Prod,Black and white,Holstein Friesian,,,(PD-) Insemination,,,,,--,1,210,,,"Dewormed(4th June 2026, CBPP vaccinated, LSD vaccinated, FMD Vaccinated)",--
+23,111045542,3,Low Prod,Black and white,Holstein Friesian,Nzega,6.5,Pregnant,10/5/2026,,,Jun-25,2,1,315,,,"Dewormed(4th June 2026, CBPP vaccinated, LSD vaccinated, FMD Vaccinated)",666
+29,111046583,3,Low Prod,Brown and white,Ayshire,Iringa,,(PD-) Insemination,10/5/2026,,,Dec-25,3.9,1,322,,,"Dewormed(4th June 2026, CBPP vaccinated, LSD vaccinated, FMD Vaccinated)",463
+30,111042337,3,Low Prod,Black and white,Holstein Friesian,,,Pregnant,10/5/2026,,,,1.1,1,321,,,"Dewormed(4th June 2026, CBPP vaccinated, LSD vaccinated, FMD Vaccinated)",562
+32,111043389,3,Low Prod,Black and white,Holstein Friesian,Mbeya,4,Fresh,10/5/2026,,,Oct-25,8.2,1,544,,,"Dewormed(4th June 2026, CBPP vaccinated, LSD vaccinated, FMD Vaccinated)",649
+34,111096007,3,Low Prod,Black and white,Holstein Friesian,,,Insemination,10/5/2026,,,,--,2,179,,,"Dewormed(4th June 2026, CBPP vaccinated, LSD vaccinated, FMD Vaccinated)",--
+44,111045395,3,Low Prod,Black and white,Holstein Friesian,Nzega,2.5,Fresh,10/5/2026,,,26-May,10.3,1,179,,,"Dewormed(4th June 2026, CBPP vaccinated, LSD vaccinated, FMD Vaccinated)",559
+54,111045521,3,Low Prod,Black and white,Holstein Friesian,,,Insemination,10/5/2026,,,,--,1,213,,,"Dewormed(4th June 2026, CBPP vaccinated, LSD vaccinated, FMD Vaccinated)",--
+55,111038647,3,Low Prod,Black and white,Holstein Friesian,Nzega,5,Pregnant,10/5/2026,6 months,,Dec-25,7.1,1,267,,,"Dewormed(4th June 2026, CBPP vaccinated, LSD vaccinated, FMD Vaccinated)",514
+65,111045604,3,Low Prod,Brown wnd white,Ayshire,Nzega,7,Fresh,10/5/2026,,,May-26,3.8,4,544,,,"Dewormed(4th June 2026, CBPP vaccinated, LSD vaccinated, FMD Vaccinated)",379
+109,111041379,3,Low Prod,Brown and white,Ayshire,Mbeya,4,Fresh,10/5/2026,,,May-26,5.8,2,179,,,"Dewormed(4th June 2026, CBPP vaccinated, LSD vaccinated, FMD Vaccinated)",385
+116,111042207,3,Low Prod,Black and white,Holstein Friesian,Nzega,3.5,(PD-) Insemination,10/5/2026,,,,13.7,1,179,,,"Dewormed(4th June 2026, CBPP vaccinated, LSD vaccinated, FMD Vaccinated)",715
+209,111047014,3,Low Prod,Black and white,Holstein Friesian,Dodoma,6,Fresh,10/5/2026,,,Apr-26,8.3,1,360,,,"Dewormed(4th June 2026, CBPP vaccinated, LSD vaccinated, FMD Vaccinated)",508
+268,111041315,3,Low Prod,Black and white,Holstein Friesian,Nzega,3,(PD-) Insemination,10/5/2026,,,Oct-25,2.1,1,352,,,"Dewormed(4th June 2026, CBPP vaccinated, LSD vaccinated, FMD Vaccinated)",605
+326,111041338,3,Low Prod,Black and white,Holstein Friesian,,,Pregnant,10/5/2026,,,,8.3,1,332,,,"Dewormed(4th June 2026, CBPP vaccinated, LSD vaccinated, FMD Vaccinated)",559
+445,111096800,3,Low Prod,Black and white,Holstein Friesian,Nzega,3.5,Fresh,10/5/2026,,,Mar-26,10.5,2,33,,,"Dewormed(4th June 2026, CBPP vaccinated, LSD vaccinated, FMD Vaccinated)",494
+458,111043424,3,Low Prod,Black and white,Holstein Friesian,Nzega,4,Pregnant,10/5/2026,3 months,,Dec-25,5.8,1,231,,,"Dewormed(4th June 2026, CBPP vaccinated, LSD vaccinated, FMD Vaccinated)",436
+S13,111041171,3,Low Prod,Black and white,Holstein Friesian,Mbeya,6,Fresh,10/5/2026,,,Aug-25,16.5,2,55,,,"Dewormed(4th June 2026, CBPP vaccinated, LSD vaccinated, FMD Vaccinated)",522
+1296,111043379,3,Low Prod,Black and white,Holstein Friesian,S.A,2.5,Fresh,10/5/2026,,,Jun-26,8.4,1,267,,,"Dewormed(4th June 2026, CBPP vaccinated, LSD vaccinated, FMD Vaccinated)",490
+1449,111046230,3,Low Prod,Black and white,Holstein Friesian,Mbeya,,Fresh,10/5/2026,,,Sep-25,11.6,1,243,,,"Dewormed(4th June 2026, CBPP vaccinated, LSD vaccinated, FMD Vaccinated)",520
+13724,111047209,3,Low Prod,Black and white,Holstein Friesian,,,Fresh,10/5/2026,,,,16.6,2,6,,,"Dewormed(4th June 2026, CBPP vaccinated, LSD vaccinated, FMD Vaccinated)",469
+20002,111096792,3,Low Prod,Black and white,Holstein Friesian,Nzega,6.5,Fresh,10/5/2026,,,Dec-25,11.6,1,179,,,"Dewormed(4th June 2026, CBPP vaccinated, LSD vaccinated, FMD Vaccinated)",483
+20222,111043290,3,Low Prod,Black and white,Cross,Mbeya,,Fresh,10/5/2026,,,Nov-25,6.1,1,544,,,"Dewormed(4th June 2026, CBPP vaccinated, LSD vaccinated, FMD Vaccinated)",467
+22110,111043383,3,Low Prod,Black and white,Holstein Friesian,Mbeya,4,Fresh,10/5/2026,,,Sep-25,6.4,1,347,,,"Dewormed(4th June 2026, CBPP vaccinated, LSD vaccinated, FMD Vaccinated)",464
+22205,111045747,3,Low Prod,Black and white,Holstein Friesian,S.A,3,Fresh,10/5/2026,,,Mar-26,14,2,55,,,"Dewormed(4th June 2026, CBPP vaccinated, LSD vaccinated, FMD Vaccinated)",457
+23077,111411238,3,Low Prod,Black and white,Holstein Friesian,,,Fresh,10/5/2026,,,,--,1,17,,,"Dewormed(4th June 2026, CBPP vaccinated, LSD vaccinated, FMD Vaccinated)",--
+23079,111414636,3,Low Prod,Black and white,Holstein Friesian,S.A,3,Fresh,10/5/2026,,,Jun-26,--,1,20,,,"Dewormed(4th June 2026, CBPP vaccinated, LSD vaccinated, FMD Vaccinated)",--
+23093,111414180,3,Low Prod,Black and white,Holstein Friesian,S.A,2.5,Fresh,10/5/2026,,,Jun-26,--,1,21,,,"Dewormed(4th June 2026, CBPP vaccinated, LSD vaccinated, FMD Vaccinated)",--
+23119,111411008,3,Low Prod,Black and white,Holstein Friesian,S.A,3,Fresh,10/5/2026,,,Jun-26,13.1,1,14,,,"Dewormed(4th June 2026, CBPP vaccinated, LSD vaccinated, FMD Vaccinated)",480
+23122,111042773,3,Low Prod,Black and white,Holstein Friesian,Nzega,2.5,Fresh,10/5/2026,,,May-26,16.4,2,27,,,"Dewormed(4th June 2026, CBPP vaccinated, LSD vaccinated, FMD Vaccinated)",423
+24516,111045184,3,Low Prod,Black and white,Holstein Friesian,S.A,3,Fresh,10/5/2026,,,Jun-26,19.1,1,7,,,"Dewormed(4th June 2026, CBPP vaccinated, LSD vaccinated, FMD Vaccinated)",418
+71223,111045387,3,Low Prod,Black and white,Holstein Friesian,S.A,6.5,Fresh,10/5/2026,,,,12,2,7,,,"Dewormed(4th June 2026, CBPP vaccinated, LSD vaccinated, FMD Vaccinated)",446
+C56,111045193,3,Low Prod,Black and white,Holstein Friesian,S.A,3,Fresh,10/5/2026,,,May-26,13.3,1,428,,,"Dewormed(4th June 2026, CBPP vaccinated, LSD vaccinated, FMD Vaccinated)",505
+1271,111414183,3,Low Prod,Black and white,Holstein Friesian,Nzega,4,Fresh,10/5/2026,,,May-26,16.6,1,393,,,"Dewormed(4th June 2026, CBPP vaccinated, LSD vaccinated, FMD Vaccinated)",449
+23084,111413814,3,Low Prod,Black and white,Holstein Friesian,Nzega,4,Fresh,10/5/2026,,,May-26,18,1,393,,,"Dewormed(4th June 2026, CBPP vaccinated, LSD vaccinated, FMD Vaccinated)",504
+23090,111413679,3,Low Prod,Black and white,Holstein Friesian,S.A,3,Fresh,10/5/2026,,,Jun-26,30.7,1,393,,,"Dewormed(4th June 2026, CBPP vaccinated, LSD vaccinated, FMD Vaccinated)",551
+23062,111413232,3,Low Prod,Black and white,Holstein Friesian,S.A,3,Fresh,10/5/2026,,,Jun-26,17.5,1,393,,,"Dewormed(4th June 2026, CBPP vaccinated, LSD vaccinated, FMD Vaccinated)",493
+D25,111411058,3,Low Prod,Brown,Boran,Nzega,4,Fresh,10/5/2026,,,Jun-26,18.1,1,393,,,"Dewormed(4th June 2026, CBPP vaccinated, LSD vaccinated, FMD Vaccinated)",408
+23160,111414790,3,Low Prod,Black and white,Holstein Friesian,Nzega,,Fresh,10/5/2026,,,Jun-26,23.9,1,393,,,"Dewormed(4th June 2026, CBPP vaccinated, LSD vaccinated, FMD Vaccinated)",523
+23118,111413669,3,Low Prod,Black and white,Holstein Friesian,S.A,2.5,Fresh,10/5/2026,,,Jun-26,18.9,1,393,,,"Dewormed(4th June 2026, CBPP vaccinated, LSD vaccinated, FMD Vaccinated)",429
+N50,111410883,3,Low Prod,Black and white,Holstein Friesian,Nzega,3,Fresh,10/5/2026,,,May-26,--,1,16,,,"Dewormed(4th June 2026, CBPP vaccinated, LSD vaccinated, FMD Vaccinated)",--
+X18,111041616,3,Low Prod,Brown,Ayshire,Nzega,6,Fresh,10/5/2026,,,May-26,9.8,1,76,,,"Dewormed(4th June 2026, CBPP vaccinated, LSD vaccinated, FMD Vaccinated)",473
+X19,111045247,3,Low Prod,Black and white,Holstein Friesian,,,Fresh,10/5/2026,,,,--,1,110,,,"Dewormed(4th June 2026, CBPP vaccinated, LSD vaccinated, FMD Vaccinated)",--
+X54,111041228,3,Low Prod,Black and white,Holstein Friesian,Mbeya,3.5,Fresh,10/5/2026,,,Aug-25,11.6,1,544,,,"Dewormed(4th June 2026, CBPP vaccinated, LSD vaccinated, FMD Vaccinated)",397
+X73,111043272,3,Low Prod,Black and white,Holstein Friesian,Mbeya,3,Fresh,10/5/2026,,,Aug-25,5.5,1,544,,,"Dewormed(4th June 2026, CBPP vaccinated, LSD vaccinated, FMD Vaccinated)",489
