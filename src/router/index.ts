@@ -49,6 +49,12 @@ const router = createRouter({
       name: 'Exports',
       component: () => import('../views/ExportPage.vue'),
       meta: { requiresAuth: true }
+    },
+    {
+      path: '/herd-summary',
+      name: 'HerdSummary',
+      component: () => import('../views/HerdSummaryPage.vue'),
+      meta: { requiresAuth: true }
     }
   ]
 })

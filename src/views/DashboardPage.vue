@@ -101,6 +101,13 @@ const tiles = [
     route: '/exports',
   },
   {
+    title: 'Herd Summary',
+    description: 'View herd-level data, milk totals, and health overview',
+    icon: '\u{1F4CA}',
+    color: '#059669',
+    route: '/herd-summary',
+  },
+  {
     title: 'Sync Status',
     description: 'View and sync pending offline records',
     icon: '\u{1F504}',
@@ -158,6 +165,7 @@ const tiles = [
         </div>
       </div>
     </div>
+
   </div>
 </template>
 
@@ -296,4 +304,5 @@ const tiles = [
   opacity: 0.6;
   cursor: not-allowed;
 }
+
 </style>
