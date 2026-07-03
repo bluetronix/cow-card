@@ -21,14 +21,14 @@ const filteredCows = () => {
     c =>
       c.id_no?.toLowerCase().includes(q) ||
       c.tag?.toLowerCase().includes(q) ||
-      c.name?.toLowerCase().includes(q) ||
+      c.collar_no?.toLowerCase().includes(q) ||
       c.breed?.toLowerCase().includes(q)
   )
 }
 
 async function deleteCow(id: string) {
   const cow = cows.value.find(c => c.id === id)
-  const label = cow?.id_no || cow?.tag || cow?.name || id
+  const label = cow?.id_no || cow?.tag || cow?.collar_no || id
   showConfirm(
     'Delete Cow',
     `Permanently delete "${label}"? This action cannot be undone.`,
@@ -57,7 +57,7 @@ async function deleteCow(id: string) {
         <input
           v-model="search"
           type="text"
-          placeholder="Search by ID, tag, name..."
+          placeholder="Search by ID, tag, collar..."
           class="search-input"
         />
         <button class="btn-primary" @click="router.push('/cows/new')">
@@ -72,7 +72,7 @@ async function deleteCow(id: string) {
           <tr>
             <th>Card No <!-- column: id_no --></th>
             <th>Tag</th>
-            <th>Name</th>
+            <th>Collar</th>
             <th>Sex</th>
             <th>Breed</th>
             <th>Age</th>
@@ -85,7 +85,7 @@ async function deleteCow(id: string) {
           <tr v-for="cow in filteredCows()" :key="cow.id">
             <td>{{ cow.id_no }}</td>
             <td>{{ cow.tag }}</td>
-            <td>{{ cow.name || '—' }}</td>
+            <td>{{ cow.collar_no || '—' }}</td>
             <td>{{ cow.sex || '—' }}</td>
             <td>{{ cow.breed }}</td>
             <td>{{ cow.birth_date ? calculateAge(cow.birth_date) : '—' }}</td>
@@ -118,7 +118,7 @@ async function deleteCow(id: string) {
           </div>
           <div class="card-body">
             <div class="card-row"><span class="card-label">Tag:</span><span>{{ cow.tag }}</span></div>
-            <div class="card-row"><span class="card-label">Name:</span><span>{{ cow.name || '—' }}</span></div>
+            <div class="card-row"><span class="card-label">Collar:</span><span>{{ cow.collar_no || '—' }}</span></div>
             <div class="card-row"><span class="card-label">Breed:</span><span>{{ cow.breed }}</span></div>
             <div class="card-row"><span class="card-label">Age:</span><span>{{ cow.birth_date ? calculateAge(cow.birth_date) : '—' }}</span></div>
             <div class="card-row">

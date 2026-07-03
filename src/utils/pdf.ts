@@ -447,7 +447,7 @@ export function downloadPdf(doc: jsPDF, filename: string) {
   doc.save(filename)
 }
 
-function buildHerdSummaryHtml(data: ReturnType<typeof computeHerdData>): string {
+function buildHerdSummaryHtml(data: ReturnType<typeof computeHerdData>, logoDataUrl: string): string {
   const { cows, females, males, lactating, dry, pregnant, open, totalDaily, avgDaily, avgFat, avgProtein, totalLactation, peakAvg, healthy, onTreatment, sick, freqSick, cullCandidates, totalAbortions, upcomingCalvings, breedBreakdown, avgLactations, totalRecords, avgTemp, today } = data
 
   const breedRows = breedBreakdown.map((b: { breed: string; count: number }) =>
@@ -506,7 +506,7 @@ body{font-family:Arial,Helvetica,sans-serif;-webkit-font-smoothing:antialiased;b
 <div class="card">
   <div class="header">
     <div style="flex:1;display:flex;align-items:center">
-      <div style="color:#0A4B29;font-weight:900;font-size:18px">BASHE DAIRY FARM</div>
+      ${logoDataUrl ? `<img src="${logoDataUrl}" style="height:52px;object-fit:contain" />` : ''}
     </div>
     <div style="text-align:center;flex:1">
       <div style="font-family:'Arial Black',Arial,sans-serif;font-size:36px;font-weight:900;color:#0A4B29;letter-spacing:2px;line-height:1">HERD SUMMARY</div>
@@ -658,8 +658,12 @@ export async function generateHerdSummaryPdf(orientation: 'portrait' | 'landscap
   let records: any[] = []
   try { records = await db.dailyRecords.toArray() } catch { /* table may not exist */ }
 
+  const [logoDataUrl] = await Promise.all([
+    loadImage(logoPath),
+  ])
+
   const data = computeHerdData(cows, records)
-  const html = buildHerdSummaryHtml(data)
+  const html = buildHerdSummaryHtml(data, logoDataUrl || '')
 
   const container = document.createElement('div')
   container.style.position = 'fixed'
