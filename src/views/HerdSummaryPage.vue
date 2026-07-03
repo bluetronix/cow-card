@@ -92,12 +92,17 @@ async function handleDownloadPdf() {
 
       <div class="card">
         <h3>Health Status</h3>
-        <div class="health-strip">
-          <div class="health-pill"><span class="dot healthy"></span> Healthy <strong>{{ summary.healthCounts.healthy }}</strong></div>
-          <div class="health-pill"><span class="dot treatment"></span> On Treatment <strong>{{ summary.healthCounts.onTreatment }}</strong></div>
-          <div class="health-pill"><span class="dot sick"></span> Sick <strong>{{ summary.healthCounts.sick }}</strong></div>
-          <div class="health-pill"><span class="dot freq"></span> Frequently Sick <strong>{{ summary.healthCounts.frequentlySick }}</strong></div>
-        </div>
+        <table class="health-table">
+          <thead>
+            <tr><th>Status</th><th>Count</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><span class="dot healthy"></span> Healthy</td><td>{{ summary.healthCounts.healthy }}</td></tr>
+            <tr><td><span class="dot treatment"></span> On Treatment</td><td>{{ summary.healthCounts.onTreatment }}</td></tr>
+            <tr><td><span class="dot sick"></span> Sick</td><td>{{ summary.healthCounts.sick }}</td></tr>
+            <tr><td><span class="dot freq"></span> Frequently Sick</td><td>{{ summary.healthCounts.frequentlySick }}</td></tr>
+          </tbody>
+        </table>
         <div class="alert-bar">
           <span>🚩 <strong>{{ summary.cullCandidates }}</strong> cull candidate(s)</span>
           <span class="alert-sep">·</span>
@@ -317,30 +322,6 @@ async function handleDownloadPdf() {
   color: #856404;
 }
 
-.health-strip {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  margin-bottom: 10px;
-}
-
-.health-pill {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  background: #f8f9fa;
-  padding: 6px 14px;
-  border-radius: 8px;
-  font-size: 0.85rem;
-  color: #555;
-}
-
-.health-pill strong {
-  color: #333;
-  font-size: 1rem;
-  margin-left: 2px;
-}
-
 .dot {
   display: inline-block;
   width: 10px;
@@ -352,6 +333,39 @@ async function handleDownloadPdf() {
 .sick { background: #d62828; }
 .treatment { background: #b45309; }
 .freq { background: #7c3aed; }
+
+.health-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 12px;
+  font-size: 0.9rem;
+}
+
+.health-table th {
+  text-align: left;
+  padding: 6px 10px;
+  background: #f8f9fa;
+  color: #555;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  border-bottom: 2px solid #e0e0e0;
+}
+
+.health-table td {
+  padding: 7px 10px;
+  border-bottom: 1px solid #f0f0f0;
+  color: #444;
+}
+
+.health-table td:last-child {
+  font-weight: 700;
+  color: #333;
+}
+
+.health-table tr:last-child td {
+  border-bottom: none;
+}
 
 .alert-bar {
   display: flex;
