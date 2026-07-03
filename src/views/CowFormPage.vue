@@ -126,6 +126,7 @@ onMounted(async () => {
       form.value = existing
       imagePreview.value = existing.image_url
       computeAgeFromBirthDate(existing.birth_date)
+      await computeMilkStatsFromRecords()
     }
   } else {
     form.value.issued_by = fullName.value || currentUser.value || ''
@@ -135,6 +136,35 @@ onMounted(async () => {
 
 const GESTATION_DAYS = 280
 const DRY_PERIOD_DAYS = 60
+
+function computeProjected305() {
+  if (form.value.current_daily_milk_yield > 0 && form.value.sex === 'Female') {
+    form.value.projected_305d_milk_yield = Math.round(form.value.current_daily_milk_yield * 305 * 10) / 10
+  } else {
+    form.value.projected_305d_milk_yield = 0
+  }
+}
+
+async function computeMilkStatsFromRecords() {
+  if (!form.value.id || form.value.sex !== 'Female') return
+  try {
+    const records = await db.dailyRecords
+      .where('cow_id').equals(form.value.id)
+      .toArray()
+    if (records.length === 0) return
+    const totals = records.map(r => r.milk_yield_total).filter(t => t > 0)
+    if (totals.length > 0) {
+      form.value.total_lactation_yield = Math.round(totals.reduce((a, b) => a + b, 0) * 10) / 10
+      form.value.peak_milk_yield = Math.round(Math.max(...totals) * 10) / 10
+    }
+    const sorted = [...records].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+    const latest = sorted[0]
+    if (latest && latest.milk_yield_total > 0) {
+      form.value.current_daily_milk_yield = latest.milk_yield_total
+      computeProjected305()
+    }
+  } catch { /* table may not exist */ }
+}
 
 function predictDates() {
   const pregnant = form.value.pregnancy_result === 'Pregnant'
@@ -187,6 +217,34 @@ watch(() => form.value.pregnancy_result, (val) => {
     predictDates()
   } else {
     clearPredicted()
+  }
+})
+
+watch(() => form.value.current_daily_milk_yield, () => {
+  computeProjected305()
+})
+
+watch(() => form.value.calving_date, (val) => {
+  if (val) {
+    const calving = new Date(val)
+    if (!isNaN(calving.getTime())) {
+      const diff = new Date().getTime() - calving.getTime()
+      form.value.days_in_milk = Math.max(0, Math.floor(diff / 86400000))
+    }
+  } else {
+    form.value.days_in_milk = 0
+  }
+})
+
+watch(() => form.value.sex, () => {
+  if (form.value.sex !== 'Female') {
+    form.value.days_in_milk = 0
+    form.value.peak_milk_yield = 0
+    form.value.current_daily_milk_yield = 0
+    form.value.total_lactation_yield = 0
+    form.value.fat_percent = 0
+    form.value.protein_percent = 0
+    form.value.projected_305d_milk_yield = 0
   }
 })
 
@@ -445,12 +503,24 @@ async function submitForm() {
         <div v-if="currentStep === 4" class="fields-grid">
           <template v-if="form.sex === 'Female'">
             <div class="form-group"><label>Days in Milk</label><input v-model.number="form.days_in_milk" type="number" min="0" /></div>
-            <div class="form-group"><label>Peak Milk Yield (L)</label><input v-model.number="form.peak_milk_yield" type="number" step="0.1" min="0" /></div>
-            <div class="form-group"><label>Current Daily Milk Yield (L)</label><input v-model.number="form.current_daily_milk_yield" type="number" step="0.1" min="0" /></div>
-            <div class="form-group"><label>Total Lactation Yield (L)</label><input v-model.number="form.total_lactation_yield" type="number" step="0.1" min="0" /></div>
+            <div class="form-group">
+              <label>Peak Milk Yield (L) <span class="auto-badge">auto</span></label>
+              <input v-model.number="form.peak_milk_yield" type="number" step="0.1" min="0" />
+            </div>
+            <div class="form-group">
+              <label>Current Daily Milk Yield (L) <span class="auto-badge">auto</span></label>
+              <input v-model.number="form.current_daily_milk_yield" type="number" step="0.1" min="0" />
+            </div>
+            <div class="form-group">
+              <label>Total Lactation Yield (L) <span class="auto-badge">auto</span></label>
+              <input v-model.number="form.total_lactation_yield" type="number" step="0.1" min="0" />
+            </div>
             <div class="form-group"><label>Fat % (Last Test)</label><input v-model.number="form.fat_percent" type="number" step="0.1" min="0" /></div>
             <div class="form-group"><label>Protein % (Last Test)</label><input v-model.number="form.protein_percent" type="number" step="0.1" min="0" /></div>
-            <div class="form-group"><label>305-Day Projected Yield (L)</label><input v-model.number="form.projected_305d_milk_yield" type="number" step="0.1" min="0" /></div>
+            <div class="form-group">
+              <label>305-Day Projected (L) <span class="auto-badge">auto</span></label>
+              <input v-model.number="form.projected_305d_milk_yield" type="number" step="0.1" min="0" />
+            </div>
           </template>
           <div v-if="form.sex === 'Male'" class="full-width sex-notice">
             ⚠️ Milk production tracking is only for female cows.
@@ -721,7 +791,21 @@ async function submitForm() {
 
 .form-group input:disabled {
   background: #f5f5f5;
-  color: #999;
+  color: #666;
+}
+
+.auto-badge {
+  display: inline-block;
+  font-size: 0.6rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  background: #059669;
+  color: #fff;
+  padding: 1px 6px;
+  border-radius: 4px;
+  vertical-align: middle;
+  margin-left: 4px;
 }
 
 .field-error {
