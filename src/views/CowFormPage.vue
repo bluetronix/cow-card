@@ -6,7 +6,7 @@ import { useAuth } from '../stores/auth'
 import { uploadToImgbb } from '../utils/imgbb'
 import { todayISO } from '../utils/age'
 import type { Cow } from '../types'
-import { BREEDS, COLOURS, LACTATION_OPTIONS, PD_GROUP_OPTIONS, MASTITIS_OPTIONS, HEALTH_STATUS_OPTIONS } from '../types'
+import { BREEDS, COLOURS, LACTATION_OPTIONS, PD_GROUP_OPTIONS, MASTITIS_OPTIONS, HEALTH_STATUS_OPTIONS, FEEDING_GROUPS, MILKING_GROUPS, MILKING_MAP, BARN_NAMES } from '../types'
 import { showToast, formatError } from '../composables/useToast'
 import PhotoEditor from '../components/PhotoEditor.vue'
 
@@ -69,7 +69,7 @@ const emptyCow = (): Cow => ({
   feeding_group: '',
   milking_group: '',
   barn_name: '',
-  housing: '',
+  housing: 'Loose Housing',
   cull_status: '-',
   abortion_count: 0,
   remarks: '',
@@ -530,9 +530,27 @@ async function submitForm() {
         <!-- Step 5: Issuance & Scoring -->
         <div v-if="currentStep === 5" class="fields-grid">
           <div class="form-group"><label>Body Condition Score (1-5)</label><input v-model.number="form.body_condition_score" type="number" step="0.25" min="1" max="5" /></div>
-          <div class="form-group"><label>Feeding Group</label><input v-model="form.feeding_group" type="text" /></div>
-          <div class="form-group"><label>Milking Group</label><input v-model="form.milking_group" type="text" /></div>
-          <div class="form-group"><label>Barn Name <!-- column: barn_name (was pen_barn_no) --></label><input v-model="form.barn_name" type="text" /></div>
+          <div class="form-group">
+            <label>Feeding Group</label>
+            <select v-model="form.feeding_group" @change="form.milking_group = MILKING_MAP[form.feeding_group] || ''">
+              <option value="">— Select —</option>
+              <option v-for="g in FEEDING_GROUPS" :key="g" :value="g">{{ g }}</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Milking Group</label>
+            <select v-model="form.milking_group">
+              <option value="">— Select —</option>
+              <option v-for="g in MILKING_GROUPS" :key="g" :value="g">{{ g }}</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Barn Name <!-- column: barn_name (was pen_barn_no) --></label>
+            <select v-model="form.barn_name">
+              <option value="">— Select —</option>
+              <option v-for="b in BARN_NAMES" :key="b" :value="b">{{ b }}</option>
+            </select>
+          </div>
           <div class="form-group"><label>Housing</label><input v-model="form.housing" type="text" placeholder="e.g. Free Stall" /></div>
           <div class="form-group">
             <label>Cull Status <!-- column: cull_status --></label>
