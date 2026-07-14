@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { db } from '../db/dexie'
 import type { Cow } from '../types'
@@ -9,21 +9,54 @@ import { showToast, formatError, showConfirm } from '../composables/useToast'
 const router = useRouter()
 const cows = ref<Cow[]>([])
 const search = ref('')
+const pregnancyFilter = ref('')
+const imageFilter = ref('')
+const sortField = ref('tag')
+const sortDir = ref<'asc' | 'desc'>('asc')
 
 onMounted(async () => {
   cows.value = await db.cows.toArray()
 })
 
 const filteredCows = () => {
-  if (!search.value) return cows.value
-  const q = search.value.toLowerCase()
-  return cows.value.filter(
-    c =>
-      c.id_no?.toLowerCase().includes(q) ||
-      c.tag?.toLowerCase().includes(q) ||
-      c.collar_no?.toLowerCase().includes(q) ||
-      c.breed?.toLowerCase().includes(q)
-  )
+  return cows.value.filter(c => {
+    if (search.value) {
+      const q = search.value.toLowerCase()
+      if (
+        !c.id_no?.toLowerCase().includes(q) &&
+        !c.tag?.toLowerCase().includes(q) &&
+        !c.collar_no?.toLowerCase().includes(q) &&
+        !c.breed?.toLowerCase().includes(q)
+      ) return false
+    }
+    if (pregnancyFilter.value && c.pregnancy_result !== pregnancyFilter.value) return false
+    if (imageFilter.value === 'with' && !c.image_url) return false
+    if (imageFilter.value === 'without' && c.image_url) return false
+    return true
+  })
+}
+
+const sortedCows = computed(() => {
+  const list = filteredCows()
+  const dir = sortDir.value === 'asc' ? 1 : -1
+  return [...list].sort((a, b) => {
+    const field = sortField.value as keyof Cow
+    let va = a[field]
+    let vb = b[field]
+    if (va == null || va === '') va = field === 'birth_date' ? '0000' : ''
+    if (vb == null || vb === '') vb = field === 'birth_date' ? '0000' : ''
+    if (typeof va === 'number' && typeof vb === 'number') return (va - vb) * dir
+    return String(va).localeCompare(String(vb), undefined, { numeric: true }) * dir
+  })
+})
+
+function toggleSort(field: string) {
+  if (sortField.value === field) {
+    sortDir.value = sortDir.value === 'asc' ? 'desc' : 'asc'
+  } else {
+    sortField.value = field
+    sortDir.value = 'asc'
+  }
 }
 
 async function deleteCow(id: string) {
@@ -66,23 +99,60 @@ async function deleteCow(id: string) {
       </div>
     </header>
 
+    <div class="filter-bar">
+      <select v-model="pregnancyFilter" class="filter-select">
+        <option value="">Pregnancy: All</option>
+        <option value="Pregnant">Pregnant</option>
+        <option value="Open">Open</option>
+      </select>
+      <select v-model="imageFilter" class="filter-select">
+        <option value="">Images: All</option>
+        <option value="with">With Image</option>
+        <option value="without">Without Image</option>
+      </select>
+    </div>
+
     <div class="table-container">
-      <table v-if="filteredCows().length > 0" class="cow-table">
+      <table v-if="sortedCows.length > 0" class="cow-table">
         <thead>
           <tr>
-            <th>Card No <!-- column: id_no --></th>
-            <th>Tag</th>
-            <th>Collar</th>
-            <th>Sex</th>
-            <th>Breed</th>
-            <th>Age</th>
-            <th>Cull <!-- column: cull_status --></th>
-            <th>Pregnancy</th>
+            <th class="sortable" @click="toggleSort('id_no')">
+              Card No
+              <span v-if="sortField === 'id_no'" class="sort-arrow">{{ sortDir === 'asc' ? ' ▲' : ' ▼' }}</span>
+            </th>
+            <th class="sortable" @click="toggleSort('tag')">
+              Tag
+              <span v-if="sortField === 'tag'" class="sort-arrow">{{ sortDir === 'asc' ? ' ▲' : ' ▼' }}</span>
+            </th>
+            <th class="sortable" @click="toggleSort('collar_no')">
+              Collar
+              <span v-if="sortField === 'collar_no'" class="sort-arrow">{{ sortDir === 'asc' ? ' ▲' : ' ▼' }}</span>
+            </th>
+            <th class="sortable" @click="toggleSort('sex')">
+              Sex
+              <span v-if="sortField === 'sex'" class="sort-arrow">{{ sortDir === 'asc' ? ' ▲' : ' ▼' }}</span>
+            </th>
+            <th class="sortable" @click="toggleSort('breed')">
+              Breed
+              <span v-if="sortField === 'breed'" class="sort-arrow">{{ sortDir === 'asc' ? ' ▲' : ' ▼' }}</span>
+            </th>
+            <th class="sortable" @click="toggleSort('birth_date')">
+              Age
+              <span v-if="sortField === 'birth_date'" class="sort-arrow">{{ sortDir === 'asc' ? ' ▲' : ' ▼' }}</span>
+            </th>
+            <th class="sortable" @click="toggleSort('cull_status')">
+              Cull
+              <span v-if="sortField === 'cull_status'" class="sort-arrow">{{ sortDir === 'asc' ? ' ▲' : ' ▼' }}</span>
+            </th>
+            <th class="sortable" @click="toggleSort('pregnancy_result')">
+              Pregnancy
+              <span v-if="sortField === 'pregnancy_result'" class="sort-arrow">{{ sortDir === 'asc' ? ' ▲' : ' ▼' }}</span>
+            </th>
             <th>Actions</th>
           </tr>
         </thead>
         <tbody>
-          <tr v-for="cow in filteredCows()" :key="cow.id">
+          <tr v-for="cow in sortedCows" :key="cow.id">
             <td>{{ cow.id_no }}</td>
             <td>{{ cow.tag }}</td>
             <td>{{ cow.collar_no || '—' }}</td>
@@ -110,8 +180,8 @@ async function deleteCow(id: string) {
         </tbody>
       </table>
 
-      <div v-if="filteredCows().length > 0" class="cow-cards">
-        <div v-for="cow in filteredCows()" :key="cow.id" class="cow-card">
+      <div v-if="sortedCows.length > 0" class="cow-cards">
+        <div v-for="cow in sortedCows" :key="cow.id" class="cow-card">
           <div class="card-header">
             <strong class="card-id">#{{ cow.id_no }}</strong>
             <span class="card-sex">{{ cow.sex || '—' }}</span>
@@ -200,6 +270,32 @@ async function deleteCow(id: string) {
   outline: none;
 }
 
+.filter-bar {
+  display: flex;
+  gap: 10px;
+  padding: 12px 32px;
+  background: #fff;
+  border-bottom: 1px solid #e8e8e8;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.filter-input,
+.filter-select {
+  padding: 6px 12px;
+  border: 2px solid #e0e0e0;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  background: #fff;
+  min-width: 110px;
+}
+
+.filter-input:focus,
+.filter-select:focus {
+  border-color: #1a5276;
+  outline: none;
+}
+
 .table-container {
   padding: 24px 32px;
   max-width: 1200px;
@@ -223,6 +319,19 @@ async function deleteCow(id: string) {
   font-size: 0.8rem;
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  user-select: none;
+}
+
+.cow-table th.sortable {
+  cursor: pointer;
+}
+
+.cow-table th.sortable:hover {
+  background: #1e6a99;
+}
+
+.sort-arrow {
+  font-size: 0.7rem;
 }
 
 .cow-table td {
@@ -339,6 +448,17 @@ async function deleteCow(id: string) {
     min-width: 0;
     font-size: 16px;
     padding: 10px 12px;
+  }
+  .filter-bar {
+    padding: 10px 16px;
+    gap: 6px;
+  }
+  .filter-input,
+  .filter-select {
+    flex: 1;
+    min-width: 80px;
+    font-size: 16px;
+    padding: 8px 10px;
   }
   .table-container {
     padding: 12px;
