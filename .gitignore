@@ -16,8 +16,12 @@ dist
 dist-ssr
 *.local
 
-# Backup CSVs
-.csv
+# Backup & temp
+.backup/
+*.csv
+*.txt
+db
+db-wal
 
 # Editor directories and files
 .vscode/*
