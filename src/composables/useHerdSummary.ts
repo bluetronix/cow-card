@@ -25,6 +25,10 @@ export interface HerdSummary {
   totalMilkRecords: number
   avgTemperature: number
   recentHealthIssues: number
+  vetOpenIncidents: number
+  vetActiveTreatments: number
+  vetOverdueVaccinations: number
+  vetLamenessFlagged: number
 }
 
 const emptySummary = (): HerdSummary => ({
@@ -50,6 +54,10 @@ const emptySummary = (): HerdSummary => ({
   totalMilkRecords: 0,
   avgTemperature: 0,
   recentHealthIssues: 0,
+  vetOpenIncidents: 0,
+  vetActiveTreatments: 0,
+  vetOverdueVaccinations: 0,
+  vetLamenessFlagged: 0,
 })
 
 export function useHerdSummary() {
@@ -127,7 +135,7 @@ export function useHerdSummary() {
       let records: DailyRecord[] = []
       try {
         records = await db.dailyRecords.toArray()
-      } catch { /* table may not exist */ }
+      } catch {}
       s.totalMilkRecords = records.length
 
       let tempSum = 0
@@ -142,6 +150,28 @@ export function useHerdSummary() {
       }
       s.avgTemperature = tempCount > 0 ? Math.round((tempSum / tempCount) * 10) / 10 : 0
       s.recentHealthIssues = healthIssueCount
+
+      try {
+        const incidents = await db.healthIncidents.toArray()
+        s.vetOpenIncidents = incidents.filter(i => i.status === 'open' || i.status === 'ongoing').length
+      } catch {}
+
+      try {
+        const treatments = await db.treatments.toArray()
+        const now = new Date().toISOString()
+        s.vetActiveTreatments = treatments.filter(t => !t.next_due_date || t.next_due_date >= now).length
+      } catch {}
+
+      try {
+        const vaccinations = await db.vaccinationRecords.toArray()
+        const now = new Date().toISOString()
+        s.vetOverdueVaccinations = vaccinations.filter(v => !v.administered_date && v.scheduled_date < now).length
+      } catch {}
+
+      try {
+        const lameness = await db.lamenessSessions.toArray()
+        s.vetLamenessFlagged = lameness.filter(l => l.limp_detected).length
+      } catch {}
 
       summary.value = s
     } catch (e) {
