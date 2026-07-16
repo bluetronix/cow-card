@@ -91,3 +91,89 @@ CREATE INDEX IF NOT EXISTS idx_daily_records_date ON daily_records(date);
 CREATE INDEX IF NOT EXISTS idx_cows_user_id ON cows(user_id);
 CREATE INDEX IF NOT EXISTS idx_cows_id_no ON cows(id_no);
 CREATE INDEX IF NOT EXISTS idx_cows_tag ON cows(tag);
+
+-- ── Vet Space Tables ──────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS vet_visits (
+  id TEXT PRIMARY KEY,
+  cow_id TEXT NOT NULL,
+  visit_date TEXT NOT NULL,
+  vet_name TEXT DEFAULT '',
+  diagnosis TEXT DEFAULT '',
+  notes TEXT DEFAULT '',
+  temperature REAL DEFAULT 0,
+  heart_rate REAL DEFAULT 0,
+  respiration_rate REAL DEFAULT 0,
+  weight REAL DEFAULT 0,
+  body_condition_score REAL DEFAULT 0,
+  created_at TEXT DEFAULT '',
+  FOREIGN KEY (cow_id) REFERENCES cows(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS health_incidents (
+  id TEXT PRIMARY KEY,
+  cow_id TEXT NOT NULL,
+  incident_date TEXT NOT NULL,
+  incident_type TEXT DEFAULT 'other',
+  severity TEXT DEFAULT 'mild',
+  status TEXT DEFAULT 'open',
+  affected_area TEXT DEFAULT '',
+  description TEXT DEFAULT '',
+  treatment_given TEXT DEFAULT '',
+  resolved_date TEXT DEFAULT '',
+  created_at TEXT DEFAULT '',
+  FOREIGN KEY (cow_id) REFERENCES cows(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS treatments (
+  id TEXT PRIMARY KEY,
+  cow_id TEXT NOT NULL,
+  incident_id TEXT DEFAULT '',
+  treatment_date TEXT NOT NULL,
+  medication TEXT DEFAULT '',
+  dosage TEXT DEFAULT '',
+  route TEXT DEFAULT '',
+  duration_days INTEGER DEFAULT 0,
+  administered_by TEXT DEFAULT '',
+  next_due_date TEXT DEFAULT '',
+  notes TEXT DEFAULT '',
+  created_at TEXT DEFAULT '',
+  FOREIGN KEY (cow_id) REFERENCES cows(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS lameness_sessions (
+  id TEXT PRIMARY KEY,
+  cow_id TEXT NOT NULL,
+  session_date TEXT NOT NULL,
+  duration_seconds REAL DEFAULT 0,
+  gait_amplitude_avg REAL DEFAULT 0,
+  gait_amplitude_max REAL DEFAULT 0,
+  limp_detected INTEGER DEFAULT 0,
+  confidence_score REAL DEFAULT 0,
+  waveform_data TEXT DEFAULT '',
+  created_at TEXT DEFAULT '',
+  FOREIGN KEY (cow_id) REFERENCES cows(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS vaccination_records (
+  id TEXT PRIMARY KEY,
+  cow_id TEXT NOT NULL,
+  vaccine_name TEXT DEFAULT '',
+  scheduled_date TEXT NOT NULL,
+  administered_date TEXT DEFAULT '',
+  administered_by TEXT DEFAULT '',
+  batch_no TEXT DEFAULT '',
+  next_due_date TEXT DEFAULT '',
+  notes TEXT DEFAULT '',
+  created_at TEXT DEFAULT '',
+  FOREIGN KEY (cow_id) REFERENCES cows(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_vet_visits_cow_id ON vet_visits(cow_id);
+CREATE INDEX IF NOT EXISTS idx_health_incidents_cow_id ON health_incidents(cow_id);
+CREATE INDEX IF NOT EXISTS idx_health_incidents_status ON health_incidents(status);
+CREATE INDEX IF NOT EXISTS idx_treatments_cow_id ON treatments(cow_id);
+CREATE INDEX IF NOT EXISTS idx_treatments_next_due ON treatments(next_due_date);
+CREATE INDEX IF NOT EXISTS idx_lameness_sessions_cow_id ON lameness_sessions(cow_id);
+CREATE INDEX IF NOT EXISTS idx_vaccination_records_cow_id ON vaccination_records(cow_id);
+CREATE INDEX IF NOT EXISTS idx_vaccination_records_scheduled ON vaccination_records(scheduled_date);

@@ -6,7 +6,7 @@ import { db } from '../db/dexie'
 import { fetchCowById } from '../db/turso'
 import { generateSummaryCard, generateDetailedCard, downloadPdf } from '../utils/pdf'
 import { calculateAge, formatDate } from '../utils/age'
-import type { Cow, DailyRecord } from '../types'
+import type { Cow, DailyRecord, HealthIncident, VetVisit, Treatment, VaccinationRecord } from '../types'
 import { showToast, formatError } from '../composables/useToast'
 
 const route = useRoute()
@@ -18,6 +18,10 @@ const loading = ref(true)
 const downloadingSummary = ref(false)
 const downloadingDetailed = ref(false)
 const dailyRecords = ref<DailyRecord[]>([])
+const vetVisits = ref<VetVisit[]>([])
+const healthIncidents = ref<HealthIncident[]>([])
+const activeTreatments = ref<Treatment[]>([])
+const pendingVaccinations = ref<VaccinationRecord[]>([])
 
 onMounted(async () => {
   authenticated.value = isLoggedIn()
@@ -32,7 +36,37 @@ onMounted(async () => {
         .where('cow_id').equals(cow.value.id)
         .reverse().sortBy('date')
       dailyRecords.value = dailyRecords.value.slice(0, 10)
-    } catch { /* table may not exist in older DBs */ }
+    } catch {}
+
+    try {
+      vetVisits.value = await db.vetVisits
+        .where('cow_id').equals(cow.value.id)
+        .reverse().sortBy('visit_date')
+      vetVisits.value = vetVisits.value.slice(0, 5)
+    } catch {}
+
+    try {
+      healthIncidents.value = await db.healthIncidents
+        .where('cow_id').equals(cow.value.id)
+        .reverse().sortBy('incident_date')
+      healthIncidents.value = healthIncidents.value.slice(0, 5)
+    } catch {}
+
+    try {
+      const all = await db.treatments
+        .where('cow_id').equals(cow.value.id).toArray()
+      activeTreatments.value = all
+        .filter(t => !t.next_due_date || t.next_due_date >= new Date().toISOString())
+        .slice(0, 3)
+    } catch {}
+
+    try {
+      const all = await db.vaccinationRecords
+        .where('cow_id').equals(cow.value.id).toArray()
+      pendingVaccinations.value = all
+        .filter(v => !v.administered_date)
+        .slice(0, 3)
+    } catch {}
   }
   loading.value = false
 })
@@ -64,7 +98,6 @@ async function downloadDetailed() {
     setTimeout(() => { downloadingDetailed.value = false }, 1500)
   }
 }
-
 </script>
 
 <template>
@@ -98,7 +131,7 @@ async function downloadDetailed() {
       <div class="card">
         <h3>Identity & General</h3>
         <div class="info-grid">
-          <div><strong>Card Number <!-- column: id_no -->:</strong> {{ cow.id_no }}</div>
+          <div><strong>Card Number:</strong> {{ cow.id_no }}</div>
           <div><strong>Tag:</strong> {{ cow.tag }}</div>
           <div><strong>Collar No:</strong> {{ cow.collar_no || '—' }}</div>
           <div><strong>Name:</strong> {{ cow.name || '—' }}</div>
@@ -114,10 +147,10 @@ async function downloadDetailed() {
       <div v-if="cow.sex !== 'Male'" class="card">
         <h3>Breeding & Reproduction</h3>
         <div class="info-grid">
-          <div><strong>Dam ID <!-- column: dam_id -->:</strong> {{ cow.dam_id || '—' }}</div>
-          <div><strong>Dam Breed <!-- column: dam_breed -->:</strong> {{ cow.dam_breed || '—' }}</div>
-          <div><strong>Sire ID <!-- column: sire_id (was bull_name) -->:</strong> {{ cow.sire_id || '—' }}</div>
-          <div><strong>Sire Breed <!-- column: sire_breed -->:</strong> {{ cow.sire_breed || '—' }}</div>
+          <div><strong>Dam ID:</strong> {{ cow.dam_id || '—' }}</div>
+          <div><strong>Dam Breed:</strong> {{ cow.dam_breed || '—' }}</div>
+          <div><strong>Sire ID:</strong> {{ cow.sire_id || '—' }}</div>
+          <div><strong>Sire Breed:</strong> {{ cow.sire_breed || '—' }}</div>
           <div><strong>Lactations:</strong> {{ cow.lactations ?? '—' }}</div>
           <div><strong>Calving Date:</strong> {{ formatDate(cow.calving_date) || '—' }}</div>
           <div><strong>PD Date:</strong> {{ formatDate(cow.pd_date) || '—' }}</div>
@@ -147,10 +180,10 @@ async function downloadDetailed() {
         <div class="info-grid">
           <div><strong>Feeding Group:</strong> {{ cow.feeding_group || '—' }}</div>
           <div><strong>Milking Group:</strong> {{ cow.milking_group || '—' }}</div>
-          <div><strong>Barn Name <!-- column: barn_name (was pen_barn_no) -->:</strong> {{ cow.barn_name || '—' }}</div>
+          <div><strong>Barn Name:</strong> {{ cow.barn_name || '—' }}</div>
           <div><strong>Housing:</strong> {{ cow.housing || '—' }}</div>
           <div><strong>BCS:</strong> {{ cow.body_condition_score ?? '—' }}</div>
-          <div><strong>Cull Status <!-- column: cull_status -->:</strong> {{ cow.cull_status || '—' }}</div>
+          <div><strong>Cull Status:</strong> {{ cow.cull_status || '—' }}</div>
           <div class="full-width"><strong>Remarks:</strong> {{ cow.remarks || '—' }}</div>
         </div>
       </div>
@@ -160,11 +193,11 @@ async function downloadDetailed() {
         <div class="info-grid">
           <div class="full-width"><strong>Vaccinations:</strong> {{ cow.vaccinations || 'None' }}</div>
           <div class="full-width"><strong>Deworming:</strong> {{ cow.deworming_dates || 'None' }}</div>
-          <div class="full-width"><strong>Mastitis History <!-- column: mastitis_history -->:</strong> {{ cow.mastitis_history || 'None' }}</div>
+          <div class="full-width"><strong>Mastitis History:</strong> {{ cow.mastitis_history || 'None' }}</div>
           <div><strong>Dead Qtr-Teat:</strong> {{ cow.dead_qtr_teat || '—' }}</div>
           <div><strong>Quarter/Teat Status:</strong> {{ cow.quarter_teat_status || '—' }}</div>
           <div><strong>BCS:</strong> {{ cow.body_condition_score ?? '—' }}</div>
-          <div><strong>Abortions <!-- column: abortion_count -->:</strong> {{ cow.abortion_count ?? '—' }}</div>
+          <div><strong>Abortions:</strong> {{ cow.abortion_count ?? '—' }}</div>
         </div>
       </div>
 
@@ -182,7 +215,7 @@ async function downloadDetailed() {
       </div>
 
       <div v-if="cow.vet_recommendations" class="card">
-        <h3>Doctor Recommendations <!-- column: vet_recommendations --></h3>
+        <h3>Doctor Recommendations</h3>
         <p class="medical-text">{{ cow.vet_recommendations }}</p>
       </div>
 
@@ -213,154 +246,66 @@ async function downloadDetailed() {
         </div>
       </div>
 
+      <div class="card vet-summary-card">
+        <div class="vet-summary-header">
+          <h3>🐾 Vet Space Overview</h3>
+          <button class="btn-vet-link" @click="router.push(`/vet/cows/${cow.id}`)">View Full Medical Timeline →</button>
+        </div>
+        <div class="vet-summary-grid">
+          <div class="vet-stat">
+            <span class="vet-stat-value">{{ vetVisits.length }}</span>
+            <span class="vet-stat-label">Vet Visits</span>
+          </div>
+          <div class="vet-stat">
+            <span class="vet-stat-value">{{ healthIncidents.length }}</span>
+            <span class="vet-stat-label">Incidents</span>
+          </div>
+          <div class="vet-stat">
+            <span class="vet-stat-value">{{ activeTreatments.length }}</span>
+            <span class="vet-stat-label">Active TX</span>
+          </div>
+          <div class="vet-stat">
+            <span class="vet-stat-value">{{ pendingVaccinations.length }}</span>
+            <span class="vet-stat-label">Pending Vax</span>
+          </div>
+        </div>
+        <div v-if="healthIncidents.length > 0" class="vet-mini-list">
+          <div v-for="inc in healthIncidents" :key="inc.id" class="vet-mini-row">
+            <span class="sev-badge" :class="inc.severity">{{ inc.severity }}</span>
+            <span class="vet-mini-type">{{ inc.incident_type }}</span>
+            <span class="vet-mini-date">{{ formatDate(inc.incident_date) }}</span>
+          </div>
+        </div>
+        <div v-else class="vet-no-data">No vet records yet</div>
+      </div>
     </div>
   </div>
 </template>
 
 <style scoped>
-.detail-page {
-  min-height: 100vh;
-  background: #f0f2f5;
-  padding-bottom: 40px;
-}
-
-.detail-header {
-  background: #fff;
-  padding: 20px 32px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
-}
-
-.detail-header h1 {
-  margin: 0;
-  font-size: 1.4rem;
-  color: #333;
-}
-
-.btn-back {
-  background: none;
-  border: none;
-  color: #1a5276;
-  font-size: 0.9rem;
-  cursor: pointer;
-  padding: 0;
-  margin-bottom: 8px;
-  display: block;
-}
-
-.header-actions {
-  display: flex;
-  gap: 8px;
-}
-
-.btn-pdf,
-.btn-edit,
-.btn-daily {
-  padding: 8px 16px;
-  border-radius: 8px;
-  font-size: 0.85rem;
-  cursor: pointer;
-  font-weight: 600;
-  border: none;
-}
-
-.btn-pdf {
-  background: #cb4335;
-  color: #fff;
-}
-
-.btn-pdf.detailed {
-  background: #6c3483;
-}
-
-.btn-edit {
-  background: #1a5276;
-  color: #fff;
-}
-
-.btn-daily {
-  background: #0e6655;
-  color: #fff;
-}
-
-.detail-content {
-  max-width: 900px;
-  margin: 0 auto;
-  padding: 24px 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-
-.card {
-  background: #fff;
-  border-radius: 12px;
-  padding: 20px 24px;
-  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.06);
-}
-
-.card h3 {
-  margin: 0 0 12px;
-  color: #333;
-  font-size: 1rem;
-  border-bottom: 2px solid #f0f0f0;
-  padding-bottom: 8px;
-}
-
-.info-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px 16px;
-  font-size: 0.9rem;
-}
-
-.full-width {
-  grid-column: 1 / -1;
-}
-
-.info-grid strong {
-  color: #555;
-}
-
-.photo-card {
-  display: flex;
-  justify-content: center;
-}
-
-.cow-photo {
-  width: 200px;
-  height: 200px;
-  border-radius: 12px;
-  object-fit: cover;
-}
-
-.no-photo {
-  width: 200px;
-  height: 200px;
-  background: #f5f5f5;
-  border-radius: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #bbb;
-}
-
-.medical-text {
-  font-size: 0.9rem;
-  color: #555;
-  line-height: 1.6;
-  white-space: pre-wrap;
-  margin: 0;
-}
-
+.detail-page { min-height: 100vh; background: #f0f2f5; padding-bottom: 40px; }
+.detail-header { background: #fff; padding: 20px 32px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+.detail-header h1 { margin: 0; font-size: 1.4rem; color: #333; }
+.btn-back { background: none; border: none; color: #1a5276; font-size: 0.9rem; cursor: pointer; padding: 0; margin-bottom: 8px; display: block; }
+.header-actions { display: flex; gap: 8px; }
+.btn-pdf, .btn-edit, .btn-daily { padding: 8px 16px; border-radius: 8px; font-size: 0.85rem; cursor: pointer; font-weight: 600; border: none; }
+.btn-pdf { background: #cb4335; color: #fff; }
+.btn-pdf.detailed { background: #6c3483; }
+.btn-edit { background: #1a5276; color: #fff; }
+.btn-daily { background: #0e6655; color: #fff; }
+.detail-content { max-width: 900px; margin: 0 auto; padding: 24px 16px; display: flex; flex-direction: column; gap: 20px; }
+.card { background: #fff; border-radius: 12px; padding: 20px 24px; box-shadow: 0 1px 6px rgba(0,0,0,0.06); }
+.card h3 { margin: 0 0 12px; color: #333; font-size: 1rem; border-bottom: 2px solid #f0f0f0; padding-bottom: 8px; }
+.info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 16px; font-size: 0.9rem; }
+.full-width { grid-column: 1 / -1; }
+.info-grid strong { color: #555; }
+.photo-card { display: flex; justify-content: center; }
+.cow-photo { width: 200px; height: 200px; border-radius: 12px; object-fit: cover; }
+.no-photo { width: 200px; height: 200px; background: #f5f5f5; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: #bbb; }
+.medical-text { font-size: 0.9rem; color: #555; line-height: 1.6; white-space: pre-wrap; margin: 0; }
 .health-status-card { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .health-status-card h3 { margin: 0; border: none; padding: 0; font-size: 0.9rem; }
-.status-badge {
-  display: inline-block; padding: 3px 12px; border-radius: 12px;
-  font-size: 0.8rem; font-weight: 700; color: #fff;
-}
+.status-badge { display: inline-block; padding: 3px 12px; border-radius: 12px; font-size: 0.8rem; font-weight: 700; color: #fff; }
 .status-badge.mini { padding: 2px 8px; font-size: 0.7rem; }
 .healthy { background: #15803d; }
 .sick { background: #d62828; }
@@ -370,10 +315,24 @@ async function downloadDetailed() {
 .daily-mini-table table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
 .daily-mini-table th, .daily-mini-table td { border: 1px solid #e5e7eb; padding: 5px 8px; text-align: left; white-space: nowrap; }
 .daily-mini-table th { background: #f9fafb; font-weight: 700; color: #333; }
+.loading, .empty { text-align: center; padding: 60px; color: #999; }
 
-.loading, .empty {
-  text-align: center;
-  padding: 60px;
-  color: #999;
-}
+.vet-summary-card { border-left: 4px solid #dc2626; }
+.vet-summary-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; border-bottom: 2px solid #f0f0f0; padding-bottom: 8px; }
+.vet-summary-header h3 { margin: 0; border: none; padding: 0; }
+.btn-vet-link { padding: 6px 14px; background: #dc2626; color: #fff; border: none; border-radius: 8px; font-size: 0.8rem; font-weight: 600; cursor: pointer; }
+.btn-vet-link:hover { background: #b91c1c; }
+.vet-summary-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 12px; }
+.vet-stat { text-align: center; background: #f9fafb; border-radius: 8px; padding: 10px; }
+.vet-stat-value { display: block; font-size: 1.5rem; font-weight: 800; color: #333; }
+.vet-stat-label { display: block; font-size: 0.7rem; color: #666; margin-top: 2px; }
+.vet-mini-list { display: flex; flex-direction: column; gap: 4px; }
+.vet-mini-row { display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: 0.82rem; }
+.sev-badge { padding: 1px 7px; border-radius: 8px; font-size: 0.65rem; font-weight: 700; color: #fff; text-transform: uppercase; }
+.sev-badge.mild { background: #15803d; }
+.sev-badge.moderate { background: #b45309; }
+.sev-badge.severe { background: #dc2626; }
+.vet-mini-type { font-weight: 600; color: #333; text-transform: capitalize; min-width: 70px; }
+.vet-mini-date { color: #999; font-size: 0.78rem; }
+.vet-no-data { color: #999; font-size: 0.85rem; text-align: center; padding: 12px 0; }
 </style>

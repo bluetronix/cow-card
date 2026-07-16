@@ -1,5 +1,5 @@
 import { createClient } from '@libsql/client/web'
-import type { Cow, DailyRecord } from '../types'
+import type { Cow, DailyRecord, VetVisit, HealthIncident, Treatment, LamenessSession, VaccinationRecord } from '../types'
 import { formatError } from '../composables/useToast'
 
 const TURSO_URL = import.meta.env.VITE_TURSO_URL || ''
@@ -238,8 +238,6 @@ export async function fetchCows(): Promise<Cow[]> {
   }
 }
 
-// formatError is imported from composables/useToast
-
 export async function fetchCowById(id: string): Promise<Cow | null> {
   if (!isConnected()) return null
   try {
@@ -310,6 +308,287 @@ export async function fetchCowById(id: string): Promise<Cow | null> {
   } catch (e: any) {
     console.error('[fetchCowById] error:', e?.message || e)
     return null
+  }
+}
+
+// ── Vet Visit ──────────────────────────────────────────
+
+export async function syncVetVisit(record: VetVisit): Promise<boolean> {
+  if (!isConnected()) return false
+  try {
+    await turso!.execute({
+      sql: `INSERT OR REPLACE INTO vet_visits (
+        id, cow_id, visit_date, vet_name, diagnosis, notes,
+        temperature, heart_rate, respiration_rate, weight, body_condition_score,
+        created_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      args: [
+        record.id, record.cow_id, record.visit_date, record.vet_name,
+        record.diagnosis, record.notes, record.temperature,
+        record.heart_rate, record.respiration_rate, record.weight,
+        record.body_condition_score, record.created_at
+      ]
+    })
+    return true
+  } catch (e) {
+    console.error('Turso sync error (vet_visit):', e)
+    return false
+  }
+}
+
+export async function fetchVetVisitsFromTurso(cowId?: string): Promise<VetVisit[]> {
+  if (!isConnected()) return []
+  try {
+    let sql = 'SELECT * FROM vet_visits'
+    const args: any[] = []
+    if (cowId) {
+      sql += ' WHERE cow_id = ? ORDER BY visit_date DESC'
+      args.push(cowId)
+    } else {
+      sql += ' ORDER BY visit_date DESC'
+    }
+    const result = await turso!.execute({ sql, args })
+    return result.rows.map(r => ({
+      id: String((r as any).id || ''),
+      cow_id: String((r as any).cow_id || ''),
+      visit_date: String((r as any).visit_date || ''),
+      vet_name: String((r as any).vet_name || ''),
+      diagnosis: String((r as any).diagnosis || ''),
+      notes: String((r as any).notes || ''),
+      temperature: Number((r as any).temperature ?? 0),
+      heart_rate: Number((r as any).heart_rate ?? 0),
+      respiration_rate: Number((r as any).respiration_rate ?? 0),
+      weight: Number((r as any).weight ?? 0),
+      body_condition_score: Number((r as any).body_condition_score ?? 0),
+      created_at: String((r as any).created_at || ''),
+      synced: 1,
+    }))
+  } catch (e: any) {
+    console.error('[fetchVetVisitsFromTurso] error:', e?.message || e)
+    return []
+  }
+}
+
+// ── Health Incident ────────────────────────────────────
+
+export async function syncHealthIncident(record: HealthIncident): Promise<boolean> {
+  if (!isConnected()) return false
+  try {
+    await turso!.execute({
+      sql: `INSERT OR REPLACE INTO health_incidents (
+        id, cow_id, incident_date, incident_type, severity, status,
+        affected_area, description, treatment_given, resolved_date, created_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      args: [
+        record.id, record.cow_id, record.incident_date, record.incident_type,
+        record.severity, record.status, record.affected_area, record.description,
+        record.treatment_given, record.resolved_date, record.created_at
+      ]
+    })
+    return true
+  } catch (e) {
+    console.error('Turso sync error (health_incident):', e)
+    return false
+  }
+}
+
+export async function fetchHealthIncidentsFromTurso(cowId?: string): Promise<HealthIncident[]> {
+  if (!isConnected()) return []
+  try {
+    let sql = 'SELECT * FROM health_incidents'
+    const args: any[] = []
+    if (cowId) {
+      sql += ' WHERE cow_id = ? ORDER BY incident_date DESC'
+      args.push(cowId)
+    } else {
+      sql += ' ORDER BY incident_date DESC'
+    }
+    const result = await turso!.execute({ sql, args })
+    return result.rows.map(r => ({
+      id: String((r as any).id || ''),
+      cow_id: String((r as any).cow_id || ''),
+      incident_date: String((r as any).incident_date || ''),
+      incident_type: String((r as any).incident_type || 'other') as HealthIncident['incident_type'],
+      severity: String((r as any).severity || 'mild') as HealthIncident['severity'],
+      status: String((r as any).status || 'open') as HealthIncident['status'],
+      affected_area: String((r as any).affected_area || ''),
+      description: String((r as any).description || ''),
+      treatment_given: String((r as any).treatment_given || ''),
+      resolved_date: String((r as any).resolved_date || ''),
+      created_at: String((r as any).created_at || ''),
+      synced: 1,
+    }))
+  } catch (e: any) {
+    console.error('[fetchHealthIncidentsFromTurso] error:', e?.message || e)
+    return []
+  }
+}
+
+// ── Treatment ──────────────────────────────────────────
+
+export async function syncTreatment(record: Treatment): Promise<boolean> {
+  if (!isConnected()) return false
+  try {
+    await turso!.execute({
+      sql: `INSERT OR REPLACE INTO treatments (
+        id, cow_id, incident_id, treatment_date, medication, dosage,
+        route, duration_days, withdrawal_days, administered_by, next_due_date, notes, created_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      args: [
+        record.id, record.cow_id, record.incident_id, record.treatment_date,
+        record.medication, record.dosage, record.route, record.duration_days,
+        record.withdrawal_days,
+        record.administered_by, record.next_due_date, record.notes, record.created_at
+      ]
+    })
+    return true
+  } catch (e) {
+    console.error('Turso sync error (treatment):', e)
+    return false
+  }
+}
+
+export async function fetchTreatmentsFromTurso(cowId?: string): Promise<Treatment[]> {
+  if (!isConnected()) return []
+  try {
+    let sql = 'SELECT * FROM treatments'
+    const args: any[] = []
+    if (cowId) {
+      sql += ' WHERE cow_id = ? ORDER BY treatment_date DESC'
+      args.push(cowId)
+    } else {
+      sql += ' ORDER BY treatment_date DESC'
+    }
+    const result = await turso!.execute({ sql, args })
+    return result.rows.map(r => ({
+      id: String((r as any).id || ''),
+      cow_id: String((r as any).cow_id || ''),
+      incident_id: String((r as any).incident_id || ''),
+      treatment_date: String((r as any).treatment_date || ''),
+      medication: String((r as any).medication || ''),
+      dosage: String((r as any).dosage || ''),
+      route: String((r as any).route || ''),
+      duration_days: Number((r as any).duration_days ?? 0),
+      withdrawal_days: Number((r as any).withdrawal_days ?? 0),
+      administered_by: String((r as any).administered_by || ''),
+      next_due_date: String((r as any).next_due_date || ''),
+      notes: String((r as any).notes || ''),
+      created_at: String((r as any).created_at || ''),
+      synced: 1,
+    }))
+  } catch (e: any) {
+    console.error('[fetchTreatmentsFromTurso] error:', e?.message || e)
+    return []
+  }
+}
+
+// ── Lameness Session ───────────────────────────────────
+
+export async function syncLamenessSession(record: LamenessSession): Promise<boolean> {
+  if (!isConnected()) return false
+  try {
+    await turso!.execute({
+      sql: `INSERT OR REPLACE INTO lameness_sessions (
+        id, cow_id, session_date, duration_seconds,
+        gait_amplitude_avg, gait_amplitude_max, limp_detected,
+        confidence_score, waveform_data, created_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      args: [
+        record.id, record.cow_id, record.session_date, record.duration_seconds,
+        record.gait_amplitude_avg, record.gait_amplitude_max,
+        record.limp_detected ? 1 : 0, record.confidence_score,
+        record.waveform_data, record.created_at
+      ]
+    })
+    return true
+  } catch (e) {
+    console.error('Turso sync error (lameness_session):', e)
+    return false
+  }
+}
+
+export async function fetchLamenessSessionsFromTurso(cowId?: string): Promise<LamenessSession[]> {
+  if (!isConnected()) return []
+  try {
+    let sql = 'SELECT * FROM lameness_sessions'
+    const args: any[] = []
+    if (cowId) {
+      sql += ' WHERE cow_id = ? ORDER BY session_date DESC'
+      args.push(cowId)
+    } else {
+      sql += ' ORDER BY session_date DESC'
+    }
+    const result = await turso!.execute({ sql, args })
+    return result.rows.map(r => ({
+      id: String((r as any).id || ''),
+      cow_id: String((r as any).cow_id || ''),
+      session_date: String((r as any).session_date || ''),
+      duration_seconds: Number((r as any).duration_seconds ?? 0),
+      gait_amplitude_avg: Number((r as any).gait_amplitude_avg ?? 0),
+      gait_amplitude_max: Number((r as any).gait_amplitude_max ?? 0),
+      limp_detected: Boolean((r as any).limp_detected),
+      confidence_score: Number((r as any).confidence_score ?? 0),
+      waveform_data: String((r as any).waveform_data || ''),
+      created_at: String((r as any).created_at || ''),
+      synced: 1,
+    }))
+  } catch (e: any) {
+    console.error('[fetchLamenessSessionsFromTurso] error:', e?.message || e)
+    return []
+  }
+}
+
+// ── Vaccination Record ─────────────────────────────────
+
+export async function syncVaccinationRecord(record: VaccinationRecord): Promise<boolean> {
+  if (!isConnected()) return false
+  try {
+    await turso!.execute({
+      sql: `INSERT OR REPLACE INTO vaccination_records (
+        id, cow_id, vaccine_name, scheduled_date, administered_date,
+        administered_by, batch_no, next_due_date, notes, created_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      args: [
+        record.id, record.cow_id, record.vaccine_name, record.scheduled_date,
+        record.administered_date, record.administered_by, record.batch_no,
+        record.next_due_date, record.notes, record.created_at
+      ]
+    })
+    return true
+  } catch (e) {
+    console.error('Turso sync error (vaccination_record):', e)
+    return false
+  }
+}
+
+export async function fetchVaccinationRecordsFromTurso(cowId?: string): Promise<VaccinationRecord[]> {
+  if (!isConnected()) return []
+  try {
+    let sql = 'SELECT * FROM vaccination_records'
+    const args: any[] = []
+    if (cowId) {
+      sql += ' WHERE cow_id = ? ORDER BY scheduled_date DESC'
+      args.push(cowId)
+    } else {
+      sql += ' ORDER BY scheduled_date DESC'
+    }
+    const result = await turso!.execute({ sql, args })
+    return result.rows.map(r => ({
+      id: String((r as any).id || ''),
+      cow_id: String((r as any).cow_id || ''),
+      vaccine_name: String((r as any).vaccine_name || ''),
+      scheduled_date: String((r as any).scheduled_date || ''),
+      administered_date: String((r as any).administered_date || ''),
+      administered_by: String((r as any).administered_by || ''),
+      batch_no: String((r as any).batch_no || ''),
+      next_due_date: String((r as any).next_due_date || ''),
+      notes: String((r as any).notes || ''),
+      created_at: String((r as any).created_at || ''),
+      synced: 1,
+    }))
+  } catch (e: any) {
+    console.error('[fetchVaccinationRecordsFromTurso] error:', e?.message || e)
+    return []
   }
 }
 
