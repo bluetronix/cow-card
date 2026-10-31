@@ -25,13 +25,23 @@ export function calculateAge(birthDate: string): string {
 
 export function formatDate(date: string): string {
   if (!date) return ''
-  return new Date(date).toLocaleDateString('en-US', {
+  const d = /^\d{4}-\d{2}-\d{2}$/.test(date) ? new Date(`${date}T00:00:00`) : new Date(date)
+  if (Number.isNaN(d.getTime())) return ''
+  return d.toLocaleDateString('en-US', {
     year: 'numeric',
     month: 'short',
     day: 'numeric'
   })
 }
 
-export function todayISO(): string {
-  return new Date().toISOString().split('T')[0]
+export function cowLifeStage(birthDate: string, sex: string): string {
+  if (!birthDate) return ''
+  const age = calculateAge(birthDate)
+  const years = parseInt(age.split('y')[0])
+  if (sex !== 'Female') return 'bull'
+  if (years < 1) return 'calf'
+  if (years < 2) return 'heifer'
+  return 'mature_cow'
 }
+
+export { todayISO } from './dateOnly'

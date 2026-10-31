@@ -6,9 +6,8 @@ import { useAuth } from '../stores/auth'
 import { uploadToImgbb } from '../utils/imgbb'
 import { todayISO } from '../utils/age'
 import type { Cow } from '../types'
-import { BREEDS, COLOURS, LACTATION_OPTIONS, PD_GROUP_OPTIONS, MASTITIS_OPTIONS, HEALTH_STATUS_OPTIONS, FEEDING_GROUPS, MILKING_GROUPS, MILKING_MAP, BARN_NAMES } from '../types'
+import { BREEDS, COLOURS, LACTATION_OPTIONS, PD_GROUP_OPTIONS, MASTITIS_OPTIONS, HEALTH_STATUS_OPTIONS, FEEDING_GROUPS, MILKING_GROUPS, BARN_NAMES } from '../types'
 import { showToast, formatError } from '../composables/useToast'
-import PhotoEditor from '../components/PhotoEditor.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -22,6 +21,14 @@ const saving = ref(false)
 const imageFile = ref<File | null>(null)
 const imagePreview = ref('')
 const showPhotoEditor = ref(false)
+const bullFrontImage = ref<File | null>(null)
+const bullFrontPreview = ref('')
+const bullSideImage = ref<File | null>(null)
+const bullSidePreview = ref('')
+const bullRearImage = ref<File | null>(null)
+const bullRearPreview = ref('')
+const bullHeadImage = ref<File | null>(null)
+const bullHeadPreview = ref('')
 const collarNoError = ref('')
 const collarNoDupCow = ref('')
 
@@ -62,7 +69,7 @@ const emptyCow = (): Cow => ({
   deworming_dates: '',
   mastitis_history: '',
   body_condition_score: 0,
-  dead_qtr_teat: '',
+  dead_qtr_teat: '', // only for females
   quarter_teat_status: '',
   medical_records: '',
   vet_recommendations: '',
@@ -70,6 +77,7 @@ const emptyCow = (): Cow => ({
   milking_group: '',
   barn_name: '',
   housing: 'Loose Housing',
+  category: 'Cow',
   cull_status: '-',
   abortion_count: 0,
   remarks: '',
@@ -81,6 +89,15 @@ const emptyCow = (): Cow => ({
   updated_at: '',
   current_health_status: '',
   last_checkup_date: '',
+  front_image_url: '',
+  side_image_url: '',
+  rear_image_url: '',
+  head_image_url: '',
+  weight_kg: 0,
+  expected_mature_weight_kg: 0,
+  average_daily_gain: 0,
+  temperament: '',
+  horn_status: '',
   synced: 0,
 })
 
@@ -136,6 +153,13 @@ onMounted(async () => {
 
 const GESTATION_DAYS = 280
 const DRY_PERIOD_DAYS = 60
+
+const MILKING_MAP: Record<string, string> = {
+  '1': 'High Prod',
+  '2': 'Med Prod',
+  '3': 'Low Prod',
+  '4': 'Recovery',
+}
 
 function computeProjected305() {
   if (form.value.current_daily_milk_yield > 0 && form.value.sex === 'Female') {
@@ -279,6 +303,17 @@ function handlePhotoRemove() {
   form.value.image_url = ''
 }
 
+async function handleBullImageUpload(kind: 'front' | 'side' | 'rear' | 'head', e: Event) {
+  const input = e.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (!file) return
+  const url = await uploadToImgbb(file).catch(() => '')
+  if (kind === 'front') { bullFrontImage.value = file; bullFrontPreview.value = URL.createObjectURL(file); form.value.front_image_url = url || '' }
+  if (kind === 'side') { bullSideImage.value = file; bullSidePreview.value = URL.createObjectURL(file); form.value.side_image_url = url || '' }
+  if (kind === 'rear') { bullRearImage.value = file; bullRearPreview.value = URL.createObjectURL(file); form.value.rear_image_url = url || '' }
+  if (kind === 'head') { bullHeadImage.value = file; bullHeadPreview.value = URL.createObjectURL(file); form.value.head_image_url = url || '' }
+}
+
 async function checkCollarNo() {
   collarNoError.value = ''
   collarNoDupCow.value = ''
@@ -402,6 +437,41 @@ async function submitForm() {
               <option value="Male">Male</option>
             </select>
           </div>
+
+          <!-- Bull-specific fields (only for males) -->
+          <template v-if="form.sex === 'Male'">
+            <div class="form-group full-width"><label>Bull Details</label></div>
+            <div class="form-group"><label>Horn Status</label><input v-model="form.horn_status" type="text" placeholder="e.g. Polled / Small horns" /></div>
+            <div class="form-group"><label>Weight (kg)</label><input v-model.number="form.weight_kg" type="number" step="0.1" min="0" /></div>
+            <div class="form-group"><label>Expected Mature Weight (kg)</label><input v-model.number="form.expected_mature_weight_kg" type="number" step="0.1" min="0" /></div>
+            <div class="form-group"><label>Average Daily Gain (kg/day)</label><input v-model.number="form.average_daily_gain" type="number" step="0.1" min="0" /></div>
+            <div class="form-group"><label>Temperament</label><input v-model="form.temperament" type="text" placeholder="e.g. Docile" /></div>
+
+            <!-- Bull view images -->
+            <div class="image-upload-section">
+              <div class="image-preview bull-image-box" style="width:120px;height:120px;position:relative">
+                <img v-if="bullFrontPreview" :src="bullFrontPreview" alt="Front" />
+                <span v-else>Front View</span>
+                <input @change="handleBullImageUpload('front', $event)" type="file" accept="image/*" class="bull-file-overlay" />
+              </div>
+              <div class="image-preview bull-image-box" style="width:120px;height:120px;position:relative">
+                <img v-if="bullSidePreview" :src="bullSidePreview" alt="Side" />
+                <span v-else>Side View</span>
+                <input @change="handleBullImageUpload('side', $event)" type="file" accept="image/*" class="bull-file-overlay" />
+              </div>
+              <div class="image-preview bull-image-box" style="width:120px;height:120px;position:relative">
+                <img v-if="bullRearPreview" :src="bullRearPreview" alt="Rear" />
+                <span v-else>Rear View</span>
+                <input @change="handleBullImageUpload('rear', $event)" type="file" accept="image/*" class="bull-file-overlay" />
+              </div>
+              <div class="image-preview bull-image-box" style="width:120px;height:120px;position:relative">
+                <img v-if="bullHeadPreview" :src="bullHeadPreview" alt="Head" />
+                <span v-else>Close Up Head</span>
+                <input @change="handleBullImageUpload('head', $event)" type="file" accept="image/*" class="bull-file-overlay" />
+              </div>
+            </div>
+          </template>
+
           <div class="form-group">
             <label>Breed / Type <!-- column: breed --></label>
             <select v-model="form.breed">
@@ -563,6 +633,7 @@ async function submitForm() {
           <div class="form-group full-width"><label>Remarks / Notes</label><textarea v-model="form.remarks" rows="3"></textarea></div>
           <div class="form-group"><label>Issued Date</label><input v-model="form.issued_date" type="date" /></div>
           <div class="form-group"><label>Issued By</label><input v-model="form.issued_by" type="text" /></div>
+
         </div>
       </div>
 
@@ -812,7 +883,17 @@ async function submitForm() {
   color: #666;
 }
 
-.auto-badge {
+  .bull-file-overlay {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    cursor: pointer;
+    z-index: 2;
+  }
+
+  .auto-badge {
   display: inline-block;
   font-size: 0.6rem;
   font-weight: 700;

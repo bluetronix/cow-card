@@ -20,8 +20,8 @@ dist-ssr
 .backup/
 *.csv
 *.txt
-db
-db-wal
+/db
+/db-wal
 
 # Editor directories and files
 .vscode/*
@@ -38,3 +38,9 @@ db-wal
 .opencode
 session*.md
 session*.json
+# Runtime exports and agent artifacts
+downloads/
+.playwright-mcp/
+*.heapsnapshot
+*.tsbuildinfo
+*.pdf

@@ -8,6 +8,7 @@ export function exportAllCowsCSV(cows: Cow[]): void {
     Name: c.name,
     Breed: c.breed,
     Sex: c.sex,
+    Category: c.category,
     Colour: c.colour,
     Age: c.birth_date,
     Origin: c.origin,
@@ -36,6 +37,15 @@ export function exportAllCowsCSV(cows: Cow[]): void {
     Remarks: c.remarks,
     'Issued Date': c.issued_date,
     'Issued By': c.issued_by,
+    'Front Image': c.front_image_url,
+    'Side Image': c.side_image_url,
+    'Rear Image': c.rear_image_url,
+    'Head Image': c.head_image_url,
+    'Weight (kg)': c.weight_kg,
+    'Expected Mature Weight (kg)': c.expected_mature_weight_kg,
+    'Average Daily Gain (kg/day)': c.average_daily_gain,
+    Temperament: c.temperament,
+    'Horn Status': c.horn_status,
   })))
   downloadBlob(csv, 'all_cows.csv', 'text/csv')
 }
@@ -66,6 +76,7 @@ export function exportCowSummaryCSV(cows: Cow[]): void {
     Name: c.name,
     Breed: c.breed,
     Sex: c.sex,
+    Category: c.category,
     Colour: c.colour,
     Age: c.birth_date,
     Origin: c.origin,
@@ -82,6 +93,15 @@ export function exportCowSummaryCSV(cows: Cow[]): void {
     'Body Condition Score': c.body_condition_score,
     'Issued Date': c.issued_date,
     'Issued By': c.issued_by,
+    'Front Image': c.front_image_url,
+    'Side Image': c.side_image_url,
+    'Rear Image': c.rear_image_url,
+    'Head Image': c.head_image_url,
+    'Weight (kg)': c.weight_kg,
+    'Expected Mature Weight (kg)': c.expected_mature_weight_kg,
+    'Average Daily Gain (kg/day)': c.average_daily_gain,
+    Temperament: c.temperament,
+    'Horn Status': c.horn_status,
   }))
   const csv = Papa.unparse(data)
   downloadBlob(csv, 'cow_summary.csv', 'text/csv')

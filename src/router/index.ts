@@ -30,12 +30,24 @@ const router = createRouter({
     {
       path: '/cows/:id',
       name: 'CowDetail',
-      component: () => import('../views/CowDetailPage.vue')
+      component: () => import('../views/CowDetailPage.vue'),
+      meta: { requiresAuth: true }
+    },
+    {
+      path: '/public/cows/:id',
+      name: 'PublicCow',
+      component: () => import('../views/PublicCowPage.vue')
     },
     {
       path: '/cows/:id/edit',
       name: 'EditCow',
       component: () => import('../views/CowFormPage.vue'),
+      meta: { requiresAuth: true }
+    },
+    {
+      path: '/cows/:id/print-card',
+      name: 'CardPrint',
+      component: () => import('../views/CardPrintView.vue'),
       meta: { requiresAuth: true }
     },
     {
@@ -97,6 +109,11 @@ const router = createRouter({
       name: 'VetVaccinations',
       component: () => import('../views/VetVaccinationsPage.vue'),
       meta: { requiresAuth: true }
+    },
+    {
+      path: '/:pathMatch(.*)*',
+      name: 'NotFound',
+      component: () => import('../views/NotFoundPage.vue')
     },
   ]
 })

@@ -3,9 +3,12 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { db } from '../db/dexie'
 import { todayISO } from '../utils/age'
+import { addDaysISO } from '../utils/dateOnly'
 import type { Cow, VetVisit, HealthIncident, Treatment, LamenessSession, VaccinationRecord } from '../types'
 import { formatDate } from '../utils/age'
 import { showToast } from '../composables/useToast'
+import { deleteLocalAndQueue, type LocalTable } from '../utils/deletes'
+import { pullCowData } from '../utils/sync'
 
 const route = useRoute()
 const router = useRouter()
@@ -78,8 +81,8 @@ function startEdit(type: string, record: any) {
 async function deleteRecord(type: string, id: string) {
   if (!confirm('Delete this record?')) return
   try {
-    const table = type === 'visits' ? db.vetVisits : type === 'incidents' ? db.healthIncidents : type === 'treatments' ? db.treatments : type === 'lameness' ? db.lamenessSessions : db.vaccinationRecords
-    await table.delete(id)
+    const table: LocalTable = type === 'visits' ? 'vetVisits' : type === 'incidents' ? 'healthIncidents' : type === 'treatments' ? 'treatments' : type === 'lameness' ? 'lamenessSessions' : 'vaccinationRecords'
+    await deleteLocalAndQueue(table, id)
     if (type === 'visits') visits.value = visits.value.filter(r => r.id !== id)
     else if (type === 'incidents') incidents.value = incidents.value.filter(r => r.id !== id)
     else if (type === 'treatments') treatments.value = treatments.value.filter(r => r.id !== id)
@@ -268,9 +271,7 @@ async function saveVaccination() {
 
 function calcWithdrawalEnd(t: Treatment): string {
   if (!t.withdrawal_days || !t.treatment_date) return ''
-  const d = new Date(t.treatment_date)
-  d.setDate(d.getDate() + t.withdrawal_days)
-  return d.toISOString().slice(0, 10)
+  return addDaysISO(t.treatment_date, t.withdrawal_days)
 }
 
 function isInWithdrawal(t: Treatment): boolean {
@@ -291,6 +292,10 @@ function tabCount(tab: string): number {
 onMounted(async () => {
   const id = route.params.id as string
   cow.value = (await db.cows.get(id)) || null
+  if (navigator.onLine) {
+    await pullCowData(id)
+    cow.value = (await db.cows.get(id)) || cow.value
+  }
   if (cow.value) {
     visits.value = await db.vetVisits.where('cow_id').equals(id).reverse().sortBy('visit_date').catch(() => [])
     incidents.value = await db.healthIncidents.where('cow_id').equals(id).reverse().sortBy('incident_date').catch(() => [])

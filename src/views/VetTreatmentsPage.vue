@@ -2,9 +2,11 @@
 import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { db } from '../db/dexie'
-import { formatDate, todayISO } from '../utils/age'
+import { formatDate } from '../utils/age'
+import { addDaysISO, isBefore, todayISO } from '../utils/dateOnly'
 import type { Treatment, Cow } from '../types'
 import { showToast } from '../composables/useToast'
+import { deleteLocalAndQueue } from '../utils/deletes'
 
 const router = useRouter()
 const loading = ref(true)
@@ -26,13 +28,13 @@ onMounted(async () => {
 
 const filtered = computed(() => {
   if (filter.value === 'all') return treatments.value
-  const now = new Date().toISOString()
-  if (filter.value === 'active') return treatments.value.filter(t => !t.next_due_date || t.next_due_date >= now)
-  return treatments.value.filter(t => t.next_due_date && t.next_due_date < now)
+  const today = todayISO()
+  if (filter.value === 'active') return treatments.value.filter(t => !t.next_due_date || t.next_due_date >= today)
+  return treatments.value.filter(t => isBefore(t.next_due_date, today))
 })
 
 const upcomingCount = computed(() =>
-  treatments.value.filter(t => t.next_due_date && t.next_due_date >= new Date().toISOString()).length
+  treatments.value.filter(t => t.next_due_date && t.next_due_date >= todayISO()).length
 )
 
 function getCowLabel(cowId: string): string {
@@ -43,7 +45,7 @@ function getCowLabel(cowId: string): string {
 async function deleteTreatment(id: string) {
   if (!confirm('Delete this treatment record?')) return
   try {
-    await db.treatments.delete(id)
+    await deleteLocalAndQueue('treatments', id)
     treatments.value = treatments.value.filter(t => t.id !== id)
     showToast('Treatment deleted', 'success')
   } catch { showToast('Failed to delete', 'error') }
@@ -51,9 +53,7 @@ async function deleteTreatment(id: string) {
 
 function calcWithdrawalEnd(t: Treatment): string {
   if (!t.withdrawal_days || !t.treatment_date) return ''
-  const d = new Date(t.treatment_date)
-  d.setDate(d.getDate() + t.withdrawal_days)
-  return d.toISOString().slice(0, 10)
+  return addDaysISO(t.treatment_date, t.withdrawal_days)
 }
 
 function isInWithdrawal(t: Treatment): boolean {
@@ -102,7 +102,7 @@ function isInWithdrawal(t: Treatment): boolean {
               </td>
               <td @click="router.push(`/vet/cows/${t.cow_id}`)">{{ t.administered_by || '—' }}</td>
               <td @click="router.push(`/vet/cows/${t.cow_id}`)">
-                <span :class="{ overdue: t.next_due_date && t.next_due_date < new Date().toISOString() }">
+                <span :class="{ overdue: isBefore(t.next_due_date) }">
                   {{ formatDate(t.next_due_date) || '—' }}
                 </span>
               </td>

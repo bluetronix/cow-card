@@ -2,9 +2,11 @@
 import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { db } from '../db/dexie'
-import { formatDate, todayISO } from '../utils/age'
+import { formatDate } from '../utils/age'
+import { isBefore, todayISO } from '../utils/dateOnly'
 import type { VaccinationRecord, Cow } from '../types'
 import { showToast } from '../composables/useToast'
+import { deleteLocalAndQueue } from '../utils/deletes'
 
 const router = useRouter()
 const loading = ref(true)
@@ -31,7 +33,7 @@ const filtered = computed(() => {
 })
 
 const overdueCount = computed(() =>
-  records.value.filter(r => !r.administered_date && r.scheduled_date < new Date().toISOString()).length
+  records.value.filter(r => !r.administered_date && isBefore(r.scheduled_date)).length
 )
 
 function getCowLabel(cowId: string): string {
@@ -42,7 +44,7 @@ function getCowLabel(cowId: string): string {
 async function deleteRecord(id: string) {
   if (!confirm('Delete this vaccination record?')) return
   try {
-    await db.vaccinationRecords.delete(id)
+    await deleteLocalAndQueue('vaccinationRecords', id)
     records.value = records.value.filter(r => r.id !== id)
     showToast('Record deleted', 'success')
   } catch { showToast('Failed to delete', 'error') }
@@ -84,9 +86,9 @@ async function markAdministered(rec: VaccinationRecord) {
             <tr v-for="r in filtered" :key="r.id">
               <td @click="router.push(`/vet/cows/${r.cow_id}`)"><strong>{{ r.vaccine_name || '—' }}</strong></td>
               <td @click="router.push(`/vet/cows/${r.cow_id}`)">{{ getCowLabel(r.cow_id) }}</td>
-              <td @click="router.push(`/vet/cows/${r.cow_id}`)" :class="{ overdue: !r.administered_date && r.scheduled_date < new Date().toISOString() }">
+              <td @click="router.push(`/vet/cows/${r.cow_id}`)" :class="{ overdue: !r.administered_date && isBefore(r.scheduled_date) }">
                 {{ formatDate(r.scheduled_date) }}
-                <span v-if="!r.administered_date && r.scheduled_date < new Date().toISOString()" class="overdue-badge">OVERDUE</span>
+                <span v-if="!r.administered_date && isBefore(r.scheduled_date)" class="overdue-badge">OVERDUE</span>
               </td>
               <td @click="router.push(`/vet/cows/${r.cow_id}`)">
                 <template v-if="r.administered_date">{{ formatDate(r.administered_date) }}</template>

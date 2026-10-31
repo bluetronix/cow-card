@@ -1,6 +1,6 @@
 import { db } from '../db/dexie'
 import {
-  syncCow, fetchCows,
+  syncCow, fetchCows, fetchCowById,
   syncDailyRecord, fetchDailyRecordsFromTurso,
   syncVetVisit, fetchVetVisitsFromTurso,
   syncHealthIncident, fetchHealthIncidentsFromTurso,
@@ -9,202 +9,246 @@ import {
   syncVaccinationRecord, fetchVaccinationRecordsFromTurso,
 } from '../db/turso'
 import { showToast, formatError } from '../composables/useToast'
+import { hasPendingDelete, pushPendingDeletes, type LocalTable } from './deletes'
 
-export async function syncPendingRecords(): Promise<{
-  cows: number; daily: number; vetVisits: number; incidents: number
-  treatments: number; lameness: number; vaccinations: number
-}> {
-  let cowsSynced = 0
-  let dailySynced = 0
-  let vetVisitsSynced = 0
-  let incidentsSynced = 0
-  let treatmentsSynced = 0
-  let lamenessSynced = 0
-  let vaccinationsSynced = 0
+export interface SyncCounts {
+  cows: number
+  daily: number
+  vetVisits: number
+  incidents: number
+  treatments: number
+  lameness: number
+  vaccinations: number
+  deletes: number
+}
+
+const emptyCounts = (): SyncCounts => ({
+  cows: 0, daily: 0, vetVisits: 0, incidents: 0,
+  treatments: 0, lameness: 0, vaccinations: 0, deletes: 0,
+})
+
+let syncPromise: Promise<SyncCounts> | null = null
+
+async function pushRows<T extends { id: string }>(
+  table: LocalTable,
+  rows: T[],
+  syncFn: (record: any) => Promise<boolean>,
+): Promise<number> {
+  let count = 0
+  for (const row of rows) {
+    const now = new Date().toISOString()
+    const payload = { ...row, updated_at: now }
+    const ok = await syncFn(payload)
+    if (ok) {
+      await (db as any)[table].update(row.id, { synced: 1, updated_at: now })
+      count++
+    }
+  }
+  return count
+}
+
+async function pushAll(): Promise<SyncCounts> {
+  const counts = emptyCounts()
 
   try {
-    const unsyncedCows = await db.cows.where('synced').equals(0).toArray()
-    for (const cow of unsyncedCows) {
-      const ok = await syncCow(cow)
-      if (ok) { await db.cows.update(cow.id, { synced: 1 }); cowsSynced++ }
-    }
+    const rows = await db.cows.where('synced').equals(0).toArray()
+    counts.cows = await pushRows('cows', rows, syncCow)
   } catch (e) {
     showToast(formatError(e, 'Failed to sync cows. Data saved locally.'), 'error')
   }
 
   try {
-    const unsyncedDaily = await db.dailyRecords.where('synced').equals(0).toArray()
-    for (const record of unsyncedDaily) {
-      const ok = await syncDailyRecord(record)
-      if (ok) { await db.dailyRecords.update(record.id, { synced: 1 }); dailySynced++ }
-    }
+    const rows = await db.dailyRecords.where('synced').equals(0).toArray()
+    counts.daily = await pushRows('dailyRecords', rows, syncDailyRecord)
   } catch (e) {
     showToast(formatError(e, 'Failed to sync daily records. Data saved locally.'), 'error')
   }
 
   try {
-    const items = await db.vetVisits.where('synced').equals(0).toArray()
-    for (const item of items) {
-      const ok = await syncVetVisit(item)
-      if (ok) { await db.vetVisits.update(item.id, { synced: 1 }); vetVisitsSynced++ }
-    }
+    const rows = await db.vetVisits.where('synced').equals(0).toArray()
+    counts.vetVisits = await pushRows('vetVisits', rows, syncVetVisit)
   } catch (e) {
     showToast(formatError(e, 'Failed to sync vet visits.'), 'error')
   }
 
   try {
-    const items = await db.healthIncidents.where('synced').equals(0).toArray()
-    for (const item of items) {
-      const ok = await syncHealthIncident(item)
-      if (ok) { await db.healthIncidents.update(item.id, { synced: 1 }); incidentsSynced++ }
-    }
+    const rows = await db.healthIncidents.where('synced').equals(0).toArray()
+    counts.incidents = await pushRows('healthIncidents', rows, syncHealthIncident)
   } catch (e) {
     showToast(formatError(e, 'Failed to sync health incidents.'), 'error')
   }
 
   try {
-    const items = await db.treatments.where('synced').equals(0).toArray()
-    for (const item of items) {
-      const ok = await syncTreatment(item)
-      if (ok) { await db.treatments.update(item.id, { synced: 1 }); treatmentsSynced++ }
-    }
+    const rows = await db.treatments.where('synced').equals(0).toArray()
+    counts.treatments = await pushRows('treatments', rows, syncTreatment)
   } catch (e) {
     showToast(formatError(e, 'Failed to sync treatments.'), 'error')
   }
 
   try {
-    const items = await db.lamenessSessions.where('synced').equals(0).toArray()
-    for (const item of items) {
-      const ok = await syncLamenessSession(item)
-      if (ok) { await db.lamenessSessions.update(item.id, { synced: 1 }); lamenessSynced++ }
-    }
+    const rows = await db.lamenessSessions.where('synced').equals(0).toArray()
+    counts.lameness = await pushRows('lamenessSessions', rows, syncLamenessSession)
   } catch (e) {
     showToast(formatError(e, 'Failed to sync lameness sessions.'), 'error')
   }
 
   try {
-    const items = await db.vaccinationRecords.where('synced').equals(0).toArray()
-    for (const item of items) {
-      const ok = await syncVaccinationRecord(item)
-      if (ok) { await db.vaccinationRecords.update(item.id, { synced: 1 }); vaccinationsSynced++ }
-    }
+    const rows = await db.vaccinationRecords.where('synced').equals(0).toArray()
+    counts.vaccinations = await pushRows('vaccinationRecords', rows, syncVaccinationRecord)
   } catch (e) {
     showToast(formatError(e, 'Failed to sync vaccination records.'), 'error')
   }
 
-  return {
-    cows: cowsSynced, daily: dailySynced, vetVisits: vetVisitsSynced,
-    incidents: incidentsSynced, treatments: treatmentsSynced,
-    lameness: lamenessSynced, vaccinations: vaccinationsSynced,
+  try {
+    counts.deletes = await pushPendingDeletes()
+  } catch (e) {
+    showToast(formatError(e, 'Failed to push deletions.'), 'error')
   }
+
+  return counts
 }
 
-export async function pullFromTurso(): Promise<{
-  cows: number; daily: number; vetVisits: number; incidents: number
-  treatments: number; lameness: number; vaccinations: number
-}> {
-  let cowsImported = 0
-  let dailyImported = 0
-  let vetVisitsImported = 0
-  let incidentsImported = 0
-  let treatmentsImported = 0
-  let lamenessImported = 0
-  let vaccinationsImported = 0
+export function syncPendingRecords(): Promise<SyncCounts> {
+  if (!syncPromise) {
+    syncPromise = pushAll().finally(() => { syncPromise = null })
+  }
+  return syncPromise
+}
+
+function isNewerThanLocal(local: any, remote: any): boolean {
+  if (!local) return true
+  if (local.synced === 0) return false
+  if (local.updated_at && remote.updated_at) {
+    return String(remote.updated_at) >= String(local.updated_at)
+  }
+  return true
+}
+
+async function mergeRemoteRows(
+  table: LocalTable,
+  rows: any[],
+): Promise<number> {
+  let imported = 0
+  const tableRef = (db as any)[table]
+
+  for (const remote of rows) {
+    if (!remote?.id) continue
+
+    if (remote.deleted_at) {
+      const local = await tableRef.get(remote.id)
+      // Do not destroy unsynced local edits; they will be pushed later.
+      if (local && local.synced === 0) continue
+      await tableRef.delete(remote.id)
+      if (table === 'cows') {
+        const children: LocalTable[] = [
+          'dailyRecords', 'vetVisits', 'healthIncidents',
+          'treatments', 'lamenessSessions', 'vaccinationRecords',
+        ]
+        for (const child of children) {
+          await (db as any)[child].where('cow_id').equals(remote.id).delete()
+        }
+      }
+      continue
+    }
+
+    if (await hasPendingDelete(table, remote.id)) continue
+
+    const local = await tableRef.get(remote.id)
+    if (!isNewerThanLocal(local, remote)) continue
+
+    await tableRef.put({ ...remote, synced: 1 })
+    if (!local) imported++
+  }
+
+  return imported
+}
+
+export async function pullFromTurso(): Promise<SyncCounts> {
+  const counts = emptyCounts()
 
   try {
-    const remoteCows = await fetchCows()
-    for (const cow of remoteCows) {
-      const local = await db.cows.get(cow.id)
-      if (local && local.synced === 0) continue
-      await db.cows.put({ ...cow, synced: 1 })
-      cowsImported++
-    }
+    counts.cows = await mergeRemoteRows('cows', await fetchCows())
   } catch (e) {
     showToast(formatError(e, 'Failed to pull cows from cloud.'), 'error')
   }
 
   try {
-    const remoteDaily = await fetchDailyRecordsFromTurso()
-    for (const record of remoteDaily) {
-      const local = await db.dailyRecords.get(record.id)
-      if (local && local.synced === 0) continue
-      await db.dailyRecords.put({ ...record, synced: 1 })
-      dailyImported++
-    }
+    counts.daily = await mergeRemoteRows('dailyRecords', await fetchDailyRecordsFromTurso())
   } catch (e) {
     showToast(formatError(e, 'Failed to pull daily records from cloud.'), 'error')
   }
 
   try {
-    const items = await fetchVetVisitsFromTurso()
-    for (const item of items) {
-      const local = await db.vetVisits.get(item.id)
-      if (local && local.synced === 0) continue
-      await db.vetVisits.put({ ...item, synced: 1 })
-      vetVisitsImported++
-    }
+    counts.vetVisits = await mergeRemoteRows('vetVisits', await fetchVetVisitsFromTurso())
   } catch (e) {
     showToast(formatError(e, 'Failed to pull vet visits.'), 'error')
   }
 
   try {
-    const items = await fetchHealthIncidentsFromTurso()
-    for (const item of items) {
-      const local = await db.healthIncidents.get(item.id)
-      if (local && local.synced === 0) continue
-      await db.healthIncidents.put({ ...item, synced: 1 })
-      incidentsImported++
-    }
+    counts.incidents = await mergeRemoteRows('healthIncidents', await fetchHealthIncidentsFromTurso())
   } catch (e) {
     showToast(formatError(e, 'Failed to pull health incidents.'), 'error')
   }
 
   try {
-    const items = await fetchTreatmentsFromTurso()
-    for (const item of items) {
-      const local = await db.treatments.get(item.id)
-      if (local && local.synced === 0) continue
-      await db.treatments.put({ ...item, synced: 1 })
-      treatmentsImported++
-    }
+    counts.treatments = await mergeRemoteRows('treatments', await fetchTreatmentsFromTurso())
   } catch (e) {
     showToast(formatError(e, 'Failed to pull treatments.'), 'error')
   }
 
   try {
-    const items = await fetchLamenessSessionsFromTurso()
-    for (const item of items) {
-      const local = await db.lamenessSessions.get(item.id)
-      if (local && local.synced === 0) continue
-      await db.lamenessSessions.put({ ...item, synced: 1 })
-      lamenessImported++
-    }
+    counts.lameness = await mergeRemoteRows('lamenessSessions', await fetchLamenessSessionsFromTurso())
   } catch (e) {
     showToast(formatError(e, 'Failed to pull lameness sessions.'), 'error')
   }
 
   try {
-    const items = await fetchVaccinationRecordsFromTurso()
-    for (const item of items) {
-      const local = await db.vaccinationRecords.get(item.id)
-      if (local && local.synced === 0) continue
-      await db.vaccinationRecords.put({ ...item, synced: 1 })
-      vaccinationsImported++
-    }
+    counts.vaccinations = await mergeRemoteRows('vaccinationRecords', await fetchVaccinationRecordsFromTurso())
   } catch (e) {
     showToast(formatError(e, 'Failed to pull vaccination records.'), 'error')
   }
 
-  return {
-    cows: cowsImported, daily: dailyImported, vetVisits: vetVisitsImported,
-    incidents: incidentsImported, treatments: treatmentsImported,
-    lameness: lamenessImported, vaccinations: vaccinationsImported,
-  }
+  return counts
+}
+
+export async function pullCowData(cowId: string): Promise<SyncCounts> {
+  const counts = emptyCounts()
+
+  try {
+    const cow = await fetchCowById(cowId)
+    counts.cows = await mergeRemoteRows('cows', cow ? [cow] : [])
+  } catch { /* offline or API unavailable */ }
+
+  try {
+    counts.daily = await mergeRemoteRows('dailyRecords', await fetchDailyRecordsFromTurso(cowId))
+  } catch { /* offline */ }
+
+  try {
+    counts.vetVisits = await mergeRemoteRows('vetVisits', await fetchVetVisitsFromTurso(cowId))
+  } catch { /* offline */ }
+
+  try {
+    counts.incidents = await mergeRemoteRows('healthIncidents', await fetchHealthIncidentsFromTurso(cowId))
+  } catch { /* offline */ }
+
+  try {
+    counts.treatments = await mergeRemoteRows('treatments', await fetchTreatmentsFromTurso(cowId))
+  } catch { /* offline */ }
+
+  try {
+    counts.lameness = await mergeRemoteRows('lamenessSessions', await fetchLamenessSessionsFromTurso(cowId))
+  } catch { /* offline */ }
+
+  try {
+    counts.vaccinations = await mergeRemoteRows('vaccinationRecords', await fetchVaccinationRecordsFromTurso(cowId))
+  } catch { /* offline */ }
+
+  return counts
 }
 
 export async function getPendingCount(): Promise<{
   cows: number; daily: number; vetVisits: number; incidents: number
-  treatments: number; lameness: number; vaccinations: number
+  treatments: number; lameness: number; vaccinations: number; deletes: number
 }> {
   const cows = await db.cows.where('synced').equals(0).count()
   const daily = await db.dailyRecords.where('synced').equals(0).count()
@@ -213,5 +257,6 @@ export async function getPendingCount(): Promise<{
   const treatments = await db.treatments.where('synced').equals(0).count().catch(() => 0)
   const lameness = await db.lamenessSessions.where('synced').equals(0).count().catch(() => 0)
   const vaccinations = await db.vaccinationRecords.where('synced').equals(0).count().catch(() => 0)
-  return { cows, daily, vetVisits, incidents, treatments, lameness, vaccinations }
+  const deletes = await db.pendingDeletes.count().catch(() => 0)
+  return { cows, daily, vetVisits, incidents, treatments, lameness, vaccinations, deletes }
 }

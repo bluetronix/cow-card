@@ -5,6 +5,7 @@ import { db } from '../db/dexie'
 import { formatDate, todayISO } from '../utils/age'
 import type { HealthIncident, Cow } from '../types'
 import { showToast } from '../composables/useToast'
+import { deleteLocalAndQueue } from '../utils/deletes'
 
 const router = useRouter()
 const loading = ref(true)
@@ -37,7 +38,7 @@ function getCowLabel(cowId: string): string {
 async function deleteIncident(id: string) {
   if (!confirm('Delete this incident record?')) return
   try {
-    await db.healthIncidents.delete(id)
+    await deleteLocalAndQueue('healthIncidents', id)
     incidents.value = incidents.value.filter(i => i.id !== id)
     showToast('Incident deleted', 'success')
   } catch { showToast('Failed to delete', 'error') }

@@ -1,12 +1,26 @@
 -- Bashe Dairy Farm - Turso Database Schema
--- Run: turso db shell <database-name> < schema.sql
+-- Idempotent baseline: safe to run on a fresh or existing database.
+-- Fresh install:  turso db shell <database-name> < schema.sql
+-- Existing install: node .backup/migrate.js
+--
+-- Notes:
+--   * All tables use TEXT ids (the app generates UUIDs).
+--   * updated_at/deleted_at support last-write-wins sync and tombstones.
+--   * deleted_at is an ISO timestamp; empty means not deleted.
+
+CREATE TABLE IF NOT EXISTS schema_migrations (
+  id TEXT PRIMARY KEY,
+  applied_at TEXT DEFAULT (datetime('now'))
+);
 
 CREATE TABLE IF NOT EXISTS users (
   id TEXT PRIMARY KEY,
   username TEXT UNIQUE NOT NULL,
   full_name TEXT DEFAULT '',
   password_hash TEXT NOT NULL,
-  created_at TEXT DEFAULT (datetime('now'))
+  created_at TEXT DEFAULT (datetime('now')),
+  updated_at TEXT DEFAULT '',
+  deleted_at TEXT DEFAULT ''
 );
 
 CREATE TABLE IF NOT EXISTS cows (
@@ -23,10 +37,10 @@ CREATE TABLE IF NOT EXISTS cows (
   origin TEXT DEFAULT '',
   birth_date TEXT DEFAULT '',
   group_name TEXT DEFAULT '',
-  dam_id TEXT DEFAULT '',                    <!-- column: dam_id -->
-  dam_breed TEXT DEFAULT '',                 <!-- new -->
-  sire_id TEXT DEFAULT '',                   <!-- column: sire_id (was bull_name) -->
-  sire_breed TEXT DEFAULT '',                <!-- new -->
+  dam_id TEXT DEFAULT '',
+  dam_breed TEXT DEFAULT '',
+  sire_id TEXT DEFAULT '',
+  sire_breed TEXT DEFAULT '',
   lactations INTEGER DEFAULT 0,
   calving_date TEXT DEFAULT '',
   pd_date TEXT DEFAULT '',
@@ -49,13 +63,13 @@ CREATE TABLE IF NOT EXISTS cows (
   dead_qtr_teat TEXT DEFAULT '',
   quarter_teat_status TEXT DEFAULT '',
   medical_records TEXT DEFAULT '',
-  vet_recommendations TEXT DEFAULT '',     <!-- new -->
+  vet_recommendations TEXT DEFAULT '',
   feeding_group TEXT DEFAULT '',
   milking_group TEXT DEFAULT '',
-  barn_name TEXT DEFAULT '',                 <!-- column: barn_name (was pen_barn_no) -->
+  barn_name TEXT DEFAULT '',
   housing TEXT DEFAULT '',
-  cull_status TEXT DEFAULT '-',             <!-- new, '+' or '-', default '-' -->
-  abortion_count INTEGER DEFAULT 0,          <!-- new -->
+  cull_status TEXT DEFAULT '-',
+  abortion_count INTEGER DEFAULT 0,
   remarks TEXT DEFAULT '',
   issued_date TEXT DEFAULT '',
   issued_by TEXT DEFAULT '',
@@ -63,8 +77,19 @@ CREATE TABLE IF NOT EXISTS cows (
   lactation_history TEXT DEFAULT '',
   current_health_status TEXT DEFAULT '',
   last_checkup_date TEXT DEFAULT '',
+  front_image_url TEXT DEFAULT '',
+  side_image_url TEXT DEFAULT '',
+  rear_image_url TEXT DEFAULT '',
+  head_image_url TEXT DEFAULT '',
+  weight_kg REAL DEFAULT 0,
+  expected_mature_weight_kg REAL DEFAULT 0,
+  average_daily_gain REAL DEFAULT 0,
+  temperament TEXT DEFAULT '',
+  horn_status TEXT DEFAULT '',
+  category TEXT DEFAULT 'Cow',
   created_at TEXT DEFAULT '',
-  updated_at TEXT DEFAULT ''
+  updated_at TEXT DEFAULT '',
+  deleted_at TEXT DEFAULT ''
 );
 
 CREATE TABLE IF NOT EXISTS daily_records (
@@ -82,17 +107,10 @@ CREATE TABLE IF NOT EXISTS daily_records (
   health_notes TEXT DEFAULT '',
   notes TEXT DEFAULT '',
   created_at TEXT DEFAULT '',
+  updated_at TEXT DEFAULT '',
+  deleted_at TEXT DEFAULT '',
   FOREIGN KEY (cow_id) REFERENCES cows(id) ON DELETE CASCADE
 );
-
-CREATE INDEX IF NOT EXISTS idx_daily_records_cow_id ON daily_records(cow_id);
-CREATE INDEX IF NOT EXISTS idx_daily_records_date ON daily_records(date);
-
-CREATE INDEX IF NOT EXISTS idx_cows_user_id ON cows(user_id);
-CREATE INDEX IF NOT EXISTS idx_cows_id_no ON cows(id_no);
-CREATE INDEX IF NOT EXISTS idx_cows_tag ON cows(tag);
-
--- ── Vet Space Tables ──────────────────────────────────
 
 CREATE TABLE IF NOT EXISTS vet_visits (
   id TEXT PRIMARY KEY,
@@ -107,6 +125,8 @@ CREATE TABLE IF NOT EXISTS vet_visits (
   weight REAL DEFAULT 0,
   body_condition_score REAL DEFAULT 0,
   created_at TEXT DEFAULT '',
+  updated_at TEXT DEFAULT '',
+  deleted_at TEXT DEFAULT '',
   FOREIGN KEY (cow_id) REFERENCES cows(id) ON DELETE CASCADE
 );
 
@@ -122,6 +142,8 @@ CREATE TABLE IF NOT EXISTS health_incidents (
   treatment_given TEXT DEFAULT '',
   resolved_date TEXT DEFAULT '',
   created_at TEXT DEFAULT '',
+  updated_at TEXT DEFAULT '',
+  deleted_at TEXT DEFAULT '',
   FOREIGN KEY (cow_id) REFERENCES cows(id) ON DELETE CASCADE
 );
 
@@ -134,10 +156,13 @@ CREATE TABLE IF NOT EXISTS treatments (
   dosage TEXT DEFAULT '',
   route TEXT DEFAULT '',
   duration_days INTEGER DEFAULT 0,
+  withdrawal_days INTEGER DEFAULT 0,
   administered_by TEXT DEFAULT '',
   next_due_date TEXT DEFAULT '',
   notes TEXT DEFAULT '',
   created_at TEXT DEFAULT '',
+  updated_at TEXT DEFAULT '',
+  deleted_at TEXT DEFAULT '',
   FOREIGN KEY (cow_id) REFERENCES cows(id) ON DELETE CASCADE
 );
 
@@ -152,6 +177,8 @@ CREATE TABLE IF NOT EXISTS lameness_sessions (
   confidence_score REAL DEFAULT 0,
   waveform_data TEXT DEFAULT '',
   created_at TEXT DEFAULT '',
+  updated_at TEXT DEFAULT '',
+  deleted_at TEXT DEFAULT '',
   FOREIGN KEY (cow_id) REFERENCES cows(id) ON DELETE CASCADE
 );
 
@@ -166,14 +193,43 @@ CREATE TABLE IF NOT EXISTS vaccination_records (
   next_due_date TEXT DEFAULT '',
   notes TEXT DEFAULT '',
   created_at TEXT DEFAULT '',
+  updated_at TEXT DEFAULT '',
+  deleted_at TEXT DEFAULT '',
   FOREIGN KEY (cow_id) REFERENCES cows(id) ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS groups (
+  id TEXT PRIMARY KEY,
+  name TEXT DEFAULT '',
+  type TEXT DEFAULT 'custom',
+  description TEXT DEFAULT '',
+  cow_ids TEXT DEFAULT '[]',
+  created_at TEXT DEFAULT '',
+  updated_at TEXT DEFAULT '',
+  issued_by TEXT DEFAULT '',
+  issued_date TEXT DEFAULT '',
+  deleted_at TEXT DEFAULT ''
+);
+
+CREATE INDEX IF NOT EXISTS idx_cows_user_id ON cows(user_id);
+CREATE INDEX IF NOT EXISTS idx_cows_id_no ON cows(id_no);
+CREATE INDEX IF NOT EXISTS idx_cows_tag ON cows(tag);
+
+CREATE INDEX IF NOT EXISTS idx_daily_records_cow_id ON daily_records(cow_id);
+CREATE INDEX IF NOT EXISTS idx_daily_records_date ON daily_records(date);
+
 CREATE INDEX IF NOT EXISTS idx_vet_visits_cow_id ON vet_visits(cow_id);
+
 CREATE INDEX IF NOT EXISTS idx_health_incidents_cow_id ON health_incidents(cow_id);
 CREATE INDEX IF NOT EXISTS idx_health_incidents_status ON health_incidents(status);
+
 CREATE INDEX IF NOT EXISTS idx_treatments_cow_id ON treatments(cow_id);
 CREATE INDEX IF NOT EXISTS idx_treatments_next_due ON treatments(next_due_date);
+
 CREATE INDEX IF NOT EXISTS idx_lameness_sessions_cow_id ON lameness_sessions(cow_id);
+
 CREATE INDEX IF NOT EXISTS idx_vaccination_records_cow_id ON vaccination_records(cow_id);
 CREATE INDEX IF NOT EXISTS idx_vaccination_records_scheduled ON vaccination_records(scheduled_date);
+
+CREATE INDEX IF NOT EXISTS idx_groups_name ON groups(name);
+CREATE INDEX IF NOT EXISTS idx_groups_type ON groups(type);

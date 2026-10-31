@@ -8,7 +8,9 @@
     "build": "vue-tsc -b && vite build",
     "preview": "vite preview",
     "backup:export": "node .backup/export.js",
-    "backup:import": "node .backup/import.js"
+    "backup:import": "node .backup/import.js",
+    "db:migrate": "node scripts/migrate.js",
+    "typecheck": "vue-tsc -b"
   },
   "dependencies": {
     "@libsql/client": "^0.17.4",

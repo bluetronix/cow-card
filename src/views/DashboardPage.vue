@@ -10,16 +10,18 @@ const { currentUser, fullName, logout } = useAuth()
 const pendingCount = ref(0)
 const pendingDaily = ref(0)
 const pendingVet = ref(0)
+const pendingDeletes = ref(0)
 const syncing = ref(false)
 const pulling = ref(false)
 
-const hasPending = computed(() => pendingCount.value > 0 || pendingDaily.value > 0 || pendingVet.value > 0)
+const hasPending = computed(() => pendingCount.value > 0 || pendingDaily.value > 0 || pendingVet.value > 0 || pendingDeletes.value > 0)
 
 onMounted(async () => {
   const p = await getPendingCount()
   pendingCount.value = p.cows
   pendingDaily.value = p.daily
   pendingVet.value = p.vetVisits + p.incidents + p.treatments + p.lameness + p.vaccinations
+  pendingDeletes.value = p.deletes
 })
 
 function handleLogout() {
@@ -39,7 +41,7 @@ async function handleSync() {
   syncing.value = true
   try {
     const res = await syncPendingRecords()
-    const total = res.cows + res.daily + res.vetVisits + res.incidents + res.treatments + res.lameness + res.vaccinations
+    const total = res.cows + res.daily + res.vetVisits + res.incidents + res.treatments + res.lameness + res.vaccinations + res.deletes
     if (total > 0) {
       showToast(`Synced ${total} item(s) to cloud`, 'success')
     } else if (!hasPending.value) {
@@ -49,6 +51,7 @@ async function handleSync() {
     pendingCount.value = p.cows
     pendingDaily.value = p.daily
     pendingVet.value = p.vetVisits + p.incidents + p.treatments + p.lameness + p.vaccinations
+  pendingDeletes.value = p.deletes
   } catch (e) {
     showToast(formatError(e, 'Sync failed. Data saved locally.'), 'error')
   } finally {
@@ -60,7 +63,7 @@ async function handlePull() {
   pulling.value = true
   try {
     const res = await pullFromTurso()
-    const total = res.cows + res.daily + res.vetVisits + res.incidents + res.treatments + res.lameness + res.vaccinations
+    const total = res.cows + res.daily + res.vetVisits + res.incidents + res.treatments + res.lameness + res.vaccinations + res.deletes
     if (total > 0) {
       showToast(`Imported ${total} item(s) from cloud`, 'success')
     } else {
@@ -70,6 +73,7 @@ async function handlePull() {
     pendingCount.value = p.cows
     pendingDaily.value = p.daily
     pendingVet.value = p.vetVisits + p.incidents + p.treatments + p.lameness + p.vaccinations
+  pendingDeletes.value = p.deletes
   } catch (e) {
     showToast(formatError(e, 'Failed to pull from cloud.'), 'error')
   } finally {
@@ -100,25 +104,25 @@ const tiles = [
     route: '/daily',
   },
   {
+    title: 'Herd Summary',
+    description: 'Herd KPIs, production, reproduction and health',
+    icon: '\u{1F4C8}',
+    color: '#0e6655',
+    route: '/herd-summary',
+  },
+  {
+    title: 'Vet Space',
+    description: 'Visits, incidents, treatments, vaccinations and lameness',
+    icon: '\u{1FA7A}',
+    color: '#b03a2e',
+    route: '/vet',
+  },
+  {
     title: 'Exports',
     description: 'Download PDF cards and CSV data',
     icon: '\u{1F4CA}',
     color: '#6c3483',
     route: '/exports',
-  },
-  {
-    title: 'Herd Summary',
-    description: 'View herd-level data, milk totals, and health overview',
-    icon: '\u{1F4CA}',
-    color: '#059669',
-    route: '/herd-summary',
-  },
-  {
-    title: 'Vet Space',
-    description: 'Health records, lameness AI, treatments & vaccines',
-    icon: '\u{1FA7A}',
-    color: '#dc2626',
-    route: '/vet',
   },
   {
     title: 'Sync Status',
@@ -158,7 +162,7 @@ const tiles = [
           <p>{{ tile.description }}</p>
           <div v-if="tile.action === 'sync'" class="sync-actions">
             <div class="sync-row">
-              <span v-if="hasPending" class="sync-count">{{ pendingCount }} cows, {{ pendingDaily }} daily, {{ pendingVet }} vet pending</span>
+              <span v-if="hasPending" class="sync-count">{{ pendingCount }} cows, {{ pendingDaily }} daily, {{ pendingVet }} vet, {{ pendingDeletes }} delete(s) pending</span>
               <button
                 v-if="hasPending"
                 class="sync-now-btn"

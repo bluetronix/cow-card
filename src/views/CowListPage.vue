@@ -3,14 +3,17 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { db } from '../db/dexie'
 import type { Cow } from '../types'
-import { calculateAge } from '../utils/age'
+import { calculateAge, cowLifeStage } from '../utils/age'
 import { showToast, formatError, showConfirm } from '../composables/useToast'
+import { cascadeDeleteCow } from '../utils/deletes'
 
 const router = useRouter()
 const cows = ref<Cow[]>([])
 const search = ref('')
 const pregnancyFilter = ref('')
 const imageFilter = ref('')
+const sexFilter = ref('')
+const ageGroupFilter = ref('')
 const sortField = ref('tag')
 const sortDir = ref<'asc' | 'desc'>('asc')
 
@@ -32,6 +35,12 @@ const filteredCows = () => {
     if (pregnancyFilter.value && c.pregnancy_result !== pregnancyFilter.value) return false
     if (imageFilter.value === 'with' && !c.image_url) return false
     if (imageFilter.value === 'without' && c.image_url) return false
+    if (sexFilter.value && c.sex !== sexFilter.value) return false
+    if (ageGroupFilter.value) {
+      const stage = cowLifeStage(c.birth_date || '', c.sex || '')
+      const ageGroup = stage === 'calf' ? 'calf' : stage === 'heifer' ? 'young' : 'adult'
+      if (ageGroup !== ageGroupFilter.value) return false
+    }
     return true
   })
 }
@@ -67,7 +76,7 @@ async function deleteCow(id: string) {
     `Permanently delete "${label}"? This action cannot be undone.`,
     async () => {
       try {
-        await db.cows.delete(id)
+        await cascadeDeleteCow(id)
         cows.value = cows.value.filter(c => c.id !== id)
         showToast(`Deleted "${label}"`, 'success')
       } catch (e) {
@@ -100,6 +109,17 @@ async function deleteCow(id: string) {
     </header>
 
     <div class="filter-bar">
+      <select v-model="sexFilter" class="filter-select">
+        <option value="">Sex: All</option>
+        <option value="Male">Male</option>
+        <option value="Female">Female</option>
+      </select>
+      <select v-model="ageGroupFilter" class="filter-select">
+        <option value="">Age: All</option>
+        <option value="calf">Calf (&lt;1 yr)</option>
+        <option value="young">Young (1-2 yr)</option>
+        <option value="adult">Adult (2+ yr)</option>
+      </select>
       <select v-model="pregnancyFilter" class="filter-select">
         <option value="">Pregnancy: All</option>
         <option value="Pregnant">Pregnant</option>
@@ -166,10 +186,12 @@ async function deleteCow(id: string) {
             </td>
             <td>
               <span
+                v-if="cow.sex !== 'Male'"
                 :class="['badge', cow.pregnancy_result === 'Pregnant' ? 'badge-pregnant' : 'badge-open']"
               >
                 {{ cow.pregnancy_result || 'Open' }}
               </span>
+              <span v-else>—</span>
             </td>
             <td class="actions">
               <button class="btn-sm" @click="router.push(`/cows/${cow.id}`)">View</button>
@@ -185,6 +207,7 @@ async function deleteCow(id: string) {
           <div class="card-header">
             <strong class="card-id">#{{ cow.id_no }}</strong>
             <span class="card-sex">{{ cow.sex || '—' }}</span>
+            <span v-if="!cow.image_url" class="badge badge-no-image">NO PHOTO</span>
           </div>
           <div class="card-body">
             <div class="card-row"><span class="card-label">Tag:</span><span>{{ cow.tag }}</span></div>
@@ -200,8 +223,10 @@ async function deleteCow(id: string) {
             <div class="card-row">
               <span class="card-label">Pregnancy:</span>
               <span
+                v-if="cow.sex !== 'Male'"
                 :class="['badge', cow.pregnancy_result === 'Pregnant' ? 'badge-pregnant' : 'badge-open']"
               >{{ cow.pregnancy_result || 'Open' }}</span>
+              <span v-else>—</span>
             </div>
           </div>
           <div class="card-actions">
@@ -360,6 +385,12 @@ async function deleteCow(id: string) {
 .badge-open {
   background: #f8d7da;
   color: #721c24;
+}
+
+.badge-no-image {
+  background: #f3f4f6;
+  color: #6b7280;
+  border: 1px solid #d1d5db;
 }
 
 .badge-cull {

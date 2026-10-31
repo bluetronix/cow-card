@@ -29,7 +29,7 @@ export function useAutoSync() {
 async function onOnline() {
   updateOnlineStatus()
   const pending = await getPendingCount()
-  const total = pending.cows + pending.daily + pending.vetVisits + pending.incidents + pending.treatments + pending.lameness + pending.vaccinations
+  const total = pending.cows + pending.daily + pending.vetVisits + pending.incidents + pending.treatments + pending.lameness + pending.vaccinations + pending.deletes
   if (total > 0) {
     showToast(`Connection restored — syncing ${total} item(s)`, 'info')
     await syncNow()
@@ -39,7 +39,7 @@ async function onOnline() {
 async function syncNow() {
   try {
     const res = await syncPendingRecords()
-    const total = res.cows + res.daily + res.vetVisits + res.incidents + res.treatments + res.lameness + res.vaccinations
+    const total = res.cows + res.daily + res.vetVisits + res.incidents + res.treatments + res.lameness + res.vaccinations + res.deletes
     if (total > 0) {
       showToast(`Auto-synced ${total} item(s)`, 'success')
     }

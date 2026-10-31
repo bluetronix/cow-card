@@ -2,15 +2,18 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { db } from '../db/dexie'
-import { generateSummaryCard, generateDetailedCard, downloadPdf } from '../utils/pdf'
+import { generateSummaryCard, generateDetailedCard, generateHerdSummaryPdf, downloadPdf } from '../utils/pdf'
 import { exportCowSummaryCSV, exportCowDetailedCSV, exportDailyRecordsCSV, exportAllCowsCSV } from '../utils/csv'
-import { calculateAge } from '../utils/age'
+import { calculateAge, cowLifeStage } from '../utils/age'
+import { todayISO } from '../utils/dateOnly'
 import type { Cow } from '../types'
 import { showToast, formatError } from '../composables/useToast'
 
 const router = useRouter()
 const cows = ref<Cow[]>([])
 const search = ref('')
+const sexFilter = ref('')
+const ageGroupFilter = ref('')
 const selectedCow = ref<Cow | null>(null)
 const message = ref('')
 
@@ -19,15 +22,28 @@ onMounted(async () => {
 })
 
 const filtered = computed(() => {
+  let list = cows.value
   const q = search.value.toLowerCase().trim()
-  if (!q) return cows.value
-  return cows.value.filter(c =>
-    c.id_no?.toLowerCase().includes(q) ||
-    c.tag?.toLowerCase().includes(q) ||
-    c.name?.toLowerCase().includes(q) ||
-    c.rfid_no?.toLowerCase().includes(q) ||
-    c.collar_no?.toLowerCase().includes(q)
-  )
+  if (q) {
+    list = list.filter(c =>
+      c.id_no?.toLowerCase().includes(q) ||
+      c.tag?.toLowerCase().includes(q) ||
+      c.name?.toLowerCase().includes(q) ||
+      c.rfid_no?.toLowerCase().includes(q) ||
+      c.collar_no?.toLowerCase().includes(q)
+    )
+  }
+  if (sexFilter.value) {
+    list = list.filter(c => c.sex === sexFilter.value)
+  }
+  if (ageGroupFilter.value) {
+    list = list.filter(c => {
+      const stage = cowLifeStage(c.birth_date || '', c.sex || '')
+      const ageGroup = stage === 'calf' ? 'calf' : stage === 'heifer' ? 'young' : 'adult'
+      return ageGroup === ageGroupFilter.value
+    })
+  }
+  return list
 })
 
 function selectCow(cow: Cow) {
@@ -125,6 +141,7 @@ async function downloadAllCowsCSV() {
 
 const downloadingDetailed = ref(false)
 const downloadingSummary = ref(false)
+const downloadingHerdSummary = ref(false)
 const exportingSingleSummary = ref(false)
 const exportingSingleDetailed = ref(false)
 const exportingSummaryCSV = ref(false)
@@ -154,6 +171,20 @@ async function downloadAllPDFs(type: 'detailed' | 'summary') {
     showToast(formatError(e, `Failed to generate ${label} PDFs`), 'error')
   } finally {
     loading.value = false
+  }
+}
+
+async function downloadHerdSummaryPDF() {
+  if (downloadingHerdSummary.value) return
+  downloadingHerdSummary.value = true
+  try {
+    const doc = await generateHerdSummaryPdf()
+    downloadPdf(doc, `herd_summary_${todayISO()}.pdf`)
+    showToast('Herd summary PDF downloaded', 'success')
+  } catch (e) {
+    showToast(formatError(e, 'Failed to generate herd summary PDF'), 'error')
+  } finally {
+    setTimeout(() => { downloadingHerdSummary.value = false }, 1500)
   }
 }
 
@@ -201,7 +232,7 @@ const cowDefaults: Record<string, unknown> = {
   vaccinations: '',
   deworming_dates: '',
   mastitis_history: '',
-  dead_qtr_teat: '',
+    dead_qtr_teat: '', // only for females
   medical_records: '',
 }
 
@@ -262,6 +293,23 @@ async function importJSON(event: Event) {
         </div>
       </div>
 
+      <!-- Filter controls -->
+      <div class="card">
+        <div class="filter-bar">
+          <select v-model="sexFilter" class="filter-select">
+            <option value="">Sex: All</option>
+            <option value="Male">Male</option>
+            <option value="Female">Female</option>
+          </select>
+          <select v-model="ageGroupFilter" class="filter-select">
+            <option value="">Age: All</option>
+            <option value="calf">Calf (&lt;1 yr)</option>
+            <option value="young">Young (1-2 yr)</option>
+            <option value="adult">Adult (2+ yr)</option>
+          </select>
+        </div>
+      </div>
+
       <!-- Results list + Detail -->
       <div class="flex-layout">
         <div class="results-panel">
@@ -280,6 +328,7 @@ async function importJSON(event: Event) {
               <span>{{ cow.tag || '—' }}</span>
               <span>{{ cow.sex || '—' }}</span>
               <span>{{ cow.breed || '—' }}</span>
+              <span v-if="!cow.image_url" class="badge badge-no-image">NO PHOTO</span>
             </div>
           </div>
           <div v-if="filtered.length === 0" class="empty-state">
@@ -371,6 +420,7 @@ async function importJSON(event: Event) {
           </label>
         </div>
         <div class="btn-row" style="margin-top: 10px">
+          <button class="btn-pdf bulk" :disabled="downloadingHerdSummary" @click="downloadHerdSummaryPDF">{{ downloadingHerdSummary ? '⏳ Generating...' : '📄 Download Herd Summary' }}</button>
           <button class="btn-pdf bulk" :disabled="downloadingDetailed" @click="downloadAllPDFs('detailed')">{{ downloadingDetailed ? '⏳ Generating...' : '📄 All Detailed PDFs' }}</button>
           <button class="btn-pdf bulk summary" :disabled="downloadingSummary" @click="downloadAllPDFs('summary')">{{ downloadingSummary ? '⏳ Generating...' : '📄 All Summary PDFs' }}</button>
         </div>
@@ -425,6 +475,17 @@ async function importJSON(event: Event) {
   border-radius: 12px;
   padding: 20px 24px;
   box-shadow: 0 1px 6px rgba(0, 0, 0, 0.06);
+}
+
+.filter-bar {
+  display: flex;
+  gap: 10px;
+  padding: 12px;
+  background: #fff;
+  border: 1px solid #e8e8e8;
+  border-radius: 8px;
+  flex-wrap: wrap;
+  align-items: center;
 }
 
 /* Search */
@@ -653,6 +714,16 @@ async function importJSON(event: Event) {
   margin: 0 0 12px;
   font-size: 1rem;
   color: #333;
+}
+
+.badge-no-image {
+  background: #f3f4f6;
+  color: #6b7280;
+  border: 1px solid #d1d5db;
+  padding: 2px 8px;
+  border-radius: 8px;
+  font-size: 0.7rem;
+  font-weight: 600;
 }
 
 .message {

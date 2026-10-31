@@ -6,7 +6,7 @@ import { useAuth } from '../stores/auth'
 import { syncPendingRecords, pullFromTurso, getPendingCount } from '../utils/sync'
 import { showToast, formatError } from '../composables/useToast'
 import { useAutoSync } from '../composables/useAutoSync'
-import { todayISO } from '../utils/age'
+import { addDaysISO, isBefore, isDueWithin, isOnOrAfter, startOfMonthISO, todayISO } from '../utils/dateOnly'
 import type { Cow, HealthIncident, Treatment, VaccinationRecord, LamenessSession } from '../types'
 
 const router = useRouter()
@@ -23,7 +23,7 @@ const data = ref({
 })
 const syncing = ref(false)
 const pulling = ref(false)
-const pendingCount = ref({ cows: 0, daily: 0, vetVisits: 0, incidents: 0, treatments: 0, lameness: 0, vaccinations: 0 })
+const pendingCount = ref({ cows: 0, daily: 0, vetVisits: 0, incidents: 0, treatments: 0, lameness: 0, vaccinations: 0, deletes: 0 })
 
 const cowSearch = ref('')
 const cowResults = ref<Cow[]>([])
@@ -76,25 +76,24 @@ async function loadData() {
   const visits = await db.vetVisits.toArray().catch(() => [] as any[])
   const cows = await db.cows.toArray().catch(() => [] as Cow[])
 
-  const now = new Date()
   const today = todayISO()
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
+  const monthStart = startOfMonthISO(today)
 
   data.value.openIncidents = incidents.filter(i => i.status === 'open' || i.status === 'ongoing').length
   data.value.totalIncidents = incidents.length
   data.value.totalVaccinations = vaccinations.length
   data.value.overdueVaccinations = vaccinations.filter(v =>
-    !v.administered_date && v.scheduled_date && v.scheduled_date < today
+    !v.administered_date && isBefore(v.scheduled_date, today)
   ).length
-  const weekFromNow = new Date(now.getTime() + 7 * 86400000).toISOString()
+  const weekFromNow = addDaysISO(today, 7)
   data.value.dueThisWeek = vaccinations.filter(v =>
-    !v.administered_date && v.scheduled_date >= today && v.scheduled_date <= weekFromNow
+    !v.administered_date && isDueWithin(v.scheduled_date, 7)
   ).length
   data.value.lamenessFlagged = lameness.filter(l => l.limp_detected).length
   data.value.lamenessToday = lameness.filter(l => l.session_date?.startsWith(today)).length
   data.value.totalVisits = visits.length
   data.value.visitsThisMonth = visits.filter(v => v.visit_date >= monthStart).length
-  data.value.activeTreatments = treatments.filter(t => !t.next_due_date || t.next_due_date >= today).length
+  data.value.activeTreatments = treatments.filter(t => isOnOrAfter(t.next_due_date, today)).length
 
   data.value.recentIncidents = incidents
     .sort((a, b) => b.incident_date.localeCompare(a.incident_date))
@@ -116,7 +115,7 @@ async function loadData() {
   for (const v of vaccinations.filter(v => !v.administered_date)) {
     const cow = cows.find(c => c.id === v.cow_id)
     if (!cow) continue
-    const isOverdue = v.scheduled_date < today
+    const isOverdue = isBefore(v.scheduled_date, today)
     items.push({
       type: isOverdue ? 'overdue-vaccination' : 'due-vaccination',
       label: isOverdue ? `Overdue: ${v.vaccine_name}` : `Due: ${v.vaccine_name}`,
@@ -127,16 +126,15 @@ async function loadData() {
   }
 
   for (const t of treatments.filter(t => t.withdrawal_days && t.treatment_date)) {
-    const endDate = new Date(t.treatment_date)
-    endDate.setDate(endDate.getDate() + t.withdrawal_days)
-    if (endDate.toISOString().slice(0, 10) >= today) {
+    const endDate = addDaysISO(t.treatment_date, t.withdrawal_days)
+    if (endDate >= today) {
       const cow = cows.find(c => c.id === t.cow_id)
       if (!cow) continue
       items.push({
         type: 'withdrawal',
         label: `Withdrawal: ${t.medication || 'treatment'}`,
         cowId: t.cow_id, idNo: cow.id_no || cow.tag,
-        date: endDate.toISOString().slice(0, 10),
+        date: endDate,
         action: `/vet/cows/${t.cow_id}?tab=treatments`
       })
     }
@@ -174,7 +172,7 @@ async function handleSync() {
   syncing.value = true
   try {
     const res = await syncPendingRecords()
-    const total = res.cows + res.daily + res.vetVisits + res.incidents + res.treatments + res.lameness + res.vaccinations
+    const total = res.cows + res.daily + res.vetVisits + res.incidents + res.treatments + res.lameness + res.vaccinations + res.deletes
     if (total > 0) showToast(`Synced ${total} items to cloud`, 'success')
     else showToast('No pending records to sync', 'info')
     pendingCount.value = await getPendingCount()
@@ -187,7 +185,7 @@ async function handlePull() {
   pulling.value = true
   try {
     const res = await pullFromTurso()
-    const total = res.cows + res.daily + res.vetVisits + res.incidents + res.treatments + res.lameness + res.vaccinations
+    const total = res.cows + res.daily + res.vetVisits + res.incidents + res.treatments + res.lameness + res.vaccinations + res.deletes
     if (total > 0) showToast(`Pulled ${total} items from cloud`, 'success')
     else showToast('Cloud data is up to date', 'info')
     await loadData()
@@ -199,17 +197,17 @@ async function handlePull() {
 const totalPending = computed(() =>
   pendingCount.value.cows + pendingCount.value.daily + pendingCount.value.vetVisits +
   pendingCount.value.incidents + pendingCount.value.treatments +
-  pendingCount.value.lameness + pendingCount.value.vaccinations
+  pendingCount.value.lameness + pendingCount.value.vaccinations + pendingCount.value.deletes
 )
 
-const kpiCards = [
+const kpiCards = computed(() => [
   { label: 'Open Incidents', value: data.value.openIncidents, color: '#dc2626', icon: '⚠', route: '/vet/incidents' },
   { label: 'Vaccinations Due', value: data.value.overdueVaccinations + data.value.dueThisWeek, color: '#b45309', icon: '💉', route: '/vet/vaccinations' },
   { label: 'Lameness Flagged', value: data.value.lamenessFlagged, color: '#9333ea', icon: '🦴', route: '/vet/lameness' },
   { label: 'Visits (This Month)', value: data.value.visitsThisMonth, color: '#1a5276', icon: '📋', route: '/vet/visits' },
   { label: 'Active Treatments', value: data.value.activeTreatments, color: '#0e6655', icon: '💊', route: '/vet/treatments' },
   { label: 'Total Incidents', value: data.value.totalIncidents, color: '#6c3483', icon: '📊', route: '/vet/incidents' },
-]
+])
 </script>
 
 <template>

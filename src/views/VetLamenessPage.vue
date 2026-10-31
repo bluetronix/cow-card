@@ -3,6 +3,7 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { db } from '../db/dexie'
 import type { Cow, LamenessSession } from '../types'
+import { todayISO } from '../utils/dateOnly'
 import { showToast, formatError } from '../composables/useToast'
 
 const router = useRouter()
@@ -18,7 +19,7 @@ const selectedCow = ref<Cow | null>(null)
 const showForm = ref(false)
 const saving = ref(false)
 
-const sessionDate = ref(new Date().toISOString().slice(0, 10))
+const sessionDate = ref(todayISO())
 const gaitScore = ref<1 | 2 | 3 | 4 | 5>(1)
 const limpDetected = ref(false)
 const affectedLeg = ref<string[]>([],)
@@ -369,7 +370,7 @@ function selectCow(cow: Cow) {
   gaitAmplitudeAvg.value = 0
   gaitAmplitudeMax.value = 0
   notes.value = ''
-  sessionDate.value = new Date().toISOString().slice(0, 10)
+  sessionDate.value = todayISO()
 }
 
 function clearSelectedCow() {

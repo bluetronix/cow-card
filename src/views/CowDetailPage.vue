@@ -4,8 +4,10 @@ import { useRoute, useRouter } from 'vue-router'
 import { useAuth } from '../stores/auth'
 import { db } from '../db/dexie'
 import { fetchCowById } from '../db/turso'
+import { pullCowData } from '../utils/sync'
 import { generateSummaryCard, generateDetailedCard, downloadPdf } from '../utils/pdf'
 import { calculateAge, formatDate } from '../utils/age'
+import { isOnOrAfter } from '../utils/dateOnly'
 import type { Cow, DailyRecord, HealthIncident, VetVisit, Treatment, VaccinationRecord } from '../types'
 import { showToast, formatError } from '../composables/useToast'
 
@@ -29,6 +31,10 @@ onMounted(async () => {
   cow.value = (await db.cows.get(id)) || null
   if (!cow.value) {
     cow.value = await fetchCowById(id)
+  }
+  if (navigator.onLine) {
+    await pullCowData(id)
+    cow.value = (await db.cows.get(id)) || cow.value
   }
   if (cow.value) {
     try {
@@ -56,7 +62,7 @@ onMounted(async () => {
       const all = await db.treatments
         .where('cow_id').equals(cow.value.id).toArray()
       activeTreatments.value = all
-        .filter(t => !t.next_due_date || t.next_due_date >= new Date().toISOString())
+        .filter(t => isOnOrAfter(t.next_due_date))
         .slice(0, 3)
     } catch {}
 
@@ -194,7 +200,7 @@ async function downloadDetailed() {
           <div class="full-width"><strong>Vaccinations:</strong> {{ cow.vaccinations || 'None' }}</div>
           <div class="full-width"><strong>Deworming:</strong> {{ cow.deworming_dates || 'None' }}</div>
           <div class="full-width"><strong>Mastitis History:</strong> {{ cow.mastitis_history || 'None' }}</div>
-          <div><strong>Dead Qtr-Teat:</strong> {{ cow.dead_qtr_teat || '—' }}</div>
+          <div><strong>Dead Qtr-Teat:</strong> {{ cow.sex === 'Female' ? (cow.dead_qtr_teat || '—') : '—' }}</div>
           <div><strong>Quarter/Teat Status:</strong> {{ cow.quarter_teat_status || '—' }}</div>
           <div><strong>BCS:</strong> {{ cow.body_condition_score ?? '—' }}</div>
           <div><strong>Abortions:</strong> {{ cow.abortion_count ?? '—' }}</div>
