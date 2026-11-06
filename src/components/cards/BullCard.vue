@@ -50,9 +50,9 @@
             <span class="lbl">Side View</span>
           </label>
           <label class="slot" :data-slot="4">
-            <img v-if="props.cow.head_image_url && !slotFailed.top" :src="props.cow.head_image_url" class="slot-img" alt="Top View" @error="slotFailed.top = true" />
-            <div v-if="!props.cow.head_image_url || slotFailed.top" class="hint">Top View</div>
-            <span class="lbl">Top View</span>
+            <img v-if="props.cow.head_image_url && !slotFailed.top" :src="props.cow.head_image_url" class="slot-img" alt="Close Head View" @error="slotFailed.top = true" />
+            <div v-if="!props.cow.head_image_url || slotFailed.top" class="hint">Close Head View</div>
+            <span class="lbl">Close Head View</span>
           </label>
           </div>
         </div>
