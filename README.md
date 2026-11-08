@@ -101,11 +101,11 @@ Run `npm run check:env` to validate the local `.env` names.
 Turso and ImgBB credentials are server-side only (`api/` functions). The
 browser talks to `/api`, never directly to the database:
 
-- `POST /api/auth/register`, `/api/auth/login`, `/api/auth/logout`, `GET /api/auth/me`
+- `POST /api/auth/register`, `/api/auth/login`, `/api/auth/logout`, `/api/auth/logout-all`, `GET /api/auth/me`
 - `POST /api/sync/push`, `GET /api/sync/pull`
 - `GET /api/cows/public/:id` — limited public card data used by QR codes
 - `POST /api/upload` — authenticated ImgBB proxy
 
-Passwords are hashed with scrypt; sessions use signed HttpOnly cookies.
+Passwords are hashed with scrypt. Sessions use random 256-bit IDs stored hashed in the `sessions` table, with expiry, revocation and per-device logout (including logout-all). The cookie is HttpOnly, SameSite=Lax and Secure in production.
 The QR code on printed cards points at the limited public page, not the full
 medical record.

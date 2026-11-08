@@ -3,7 +3,8 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuth } from '../stores/auth'
 import { getPendingCount, syncPendingRecords, pullFromTurso } from '../utils/sync'
-import { showToast, formatError } from '../composables/useToast'
+import { logoutAllUser } from '../db/turso'
+import { showToast, formatError, showConfirm } from '../composables/useToast'
 
 const router = useRouter()
 const { currentUser, fullName, logout } = useAuth()
@@ -27,6 +28,20 @@ onMounted(async () => {
 function handleLogout() {
   logout()
   router.push('/login')
+}
+
+function handleLogoutAll() {
+  showConfirm(
+    'Log out all devices',
+    'This revokes every active session for your account, including this one.',
+    async () => {
+      await logoutAllUser()
+      logout()
+      router.push('/login')
+      showToast('All sessions revoked', 'success')
+    },
+    'Log out all',
+  )
 }
 
 function handleTileClick(tile: { action?: string; route?: string }) {
@@ -143,6 +158,7 @@ const tiles = [
         <p class="user-greeting">Welcome, {{ fullName || currentUser }}</p>
       </div>
       <div class="header-actions">
+        <button class="btn-logout" @click="handleLogoutAll">Logout all devices</button>
         <button class="btn-logout" @click="handleLogout">Logout</button>
       </div>
     </header>

@@ -1,4 +1,5 @@
 import crypto from 'crypto'
+import { getDb } from './_db.js'
 import { isSessionConfigured, sessionSecret } from './_env.js'
 
 const COOKIE_NAME = 'cowcard_session'
@@ -56,14 +57,8 @@ export function verifyPassword(password, stored) {
   return a.length === b.length && crypto.timingSafeEqual(a, b)
 }
 
-function sign(payload) {
-  return crypto.createHmac('sha256', getSecret()).update(payload).digest('base64url')
-}
-
-export function createSession(userId) {
-  const expires = Date.now() + SESSION_MAX_AGE * 1000
-  const payload = `${userId}.${expires}`
-  return `${payload}.${sign(payload)}`
+function hashSessionToken(token) {
+  return crypto.createHmac('sha256', getSecret()).update(String(token)).digest('hex')
 }
 
 function parseCookies(header) {
@@ -76,22 +71,105 @@ function parseCookies(header) {
   return cookies
 }
 
-export function readSession(req) {
-  const cookies = parseCookies(req.headers?.cookie)
-  const token = cookies[COOKIE_NAME]
+function sessionTokenFromRequest(req) {
+  return parseCookies(req.headers?.cookie)[COOKIE_NAME] || ''
+}
+
+export function buildSession(userId, req) {
+  const token = crypto.randomBytes(32).toString('base64url')
+  const now = new Date()
+  const expiresAt = new Date(now.getTime() + SESSION_MAX_AGE * 1000)
+  const userAgent = String(req.headers?.['user-agent'] || '').slice(0, 300)
+  const ip = String(req.headers?.['x-forwarded-for'] || req.socket?.remoteAddress || '')
+    .split(',')[0]
+    .trim()
+    .slice(0, 100)
+
+  return {
+    token,
+    idHash: hashSessionToken(token),
+    userId: String(userId),
+    createdAt: now.toISOString(),
+    lastSeenAt: now.toISOString(),
+    expiresAt: expiresAt.toISOString(),
+    userAgent,
+    ip,
+  }
+}
+
+export function sessionStatement(session) {
+  return {
+    sql: `INSERT INTO sessions (id_hash, user_id, created_at, last_seen_at, expires_at, revoked_at, user_agent, ip)
+          VALUES (?, ?, ?, ?, ?, '', ?, ?)`,
+    args: [
+      session.idHash,
+      session.userId,
+      session.createdAt,
+      session.lastSeenAt,
+      session.expiresAt,
+      session.userAgent,
+      session.ip,
+    ],
+  }
+}
+
+export async function createSession(userId, req) {
+  const session = buildSession(userId, req)
+  await getDb().execute(sessionStatement(session))
+  return session.token
+}
+
+export async function readSession(req) {
+  const token = sessionTokenFromRequest(req)
   if (!token) return null
 
-  const parts = token.split('.')
-  if (parts.length !== 3) return null
-  const [userId, expires, signature] = parts
-  if (!userId || !expires || Number(expires) < Date.now()) return null
+  const idHash = hashSessionToken(token)
+  const db = getDb()
+  const result = await db.execute({
+    sql: 'SELECT user_id, expires_at, last_seen_at, revoked_at FROM sessions WHERE id_hash = ?',
+    args: [idHash],
+  })
+  if (result.rows.length === 0) return null
 
-  const payload = `${userId}.${expires}`
-  const expected = sign(payload)
-  const a = Buffer.from(signature)
-  const b = Buffer.from(expected)
-  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null
-  return userId
+  const row = result.rows[0]
+  if (row.revoked_at) return null
+
+  const now = Date.now()
+  if (new Date(String(row.expires_at)).getTime() <= now) {
+    await db.execute({
+      sql: 'UPDATE sessions SET revoked_at = ? WHERE id_hash = ?',
+      args: [new Date(now).toISOString(), idHash],
+    })
+    return null
+  }
+
+  const lastSeen = row.last_seen_at ? new Date(String(row.last_seen_at)).getTime() : 0
+  if (now - lastSeen > 60 * 60 * 1000) {
+    await db.execute({
+      sql: 'UPDATE sessions SET last_seen_at = ? WHERE id_hash = ?',
+      args: [new Date(now).toISOString(), idHash],
+    })
+  }
+
+  return String(row.user_id)
+}
+
+export async function revokeSession(req) {
+  const token = sessionTokenFromRequest(req)
+  if (!token) return
+  await getDb().execute({
+    sql: `UPDATE sessions SET revoked_at = ?
+          WHERE id_hash = ? AND (revoked_at IS NULL OR revoked_at = '')`,
+    args: [new Date().toISOString(), hashSessionToken(token)],
+  })
+}
+
+export async function revokeAllSessions(userId) {
+  await getDb().execute({
+    sql: `UPDATE sessions SET revoked_at = ?
+          WHERE user_id = ? AND (revoked_at IS NULL OR revoked_at = '')`,
+    args: [new Date().toISOString(), String(userId)],
+  })
 }
 
 function isSecure(req) {
@@ -140,9 +218,9 @@ export function classifyError(error) {
 
 export { isSessionConfigured }
 
-export function requireUser(req, res) {
+export async function requireUser(req, res) {
   try {
-    const userId = readSession(req)
+    const userId = await readSession(req)
     if (!userId) {
       json(res, 401, { error: 'Unauthorized' })
       return null

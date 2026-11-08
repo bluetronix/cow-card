@@ -5,7 +5,7 @@ import { TABLES } from '../_tables.js'
 export default async function handler(req, res) {
   if (req.method !== 'POST') return json(res, 405, { error: 'Method not allowed' })
 
-  const userId = requireUser(req, res)
+  const userId = await requireUser(req, res)
   if (!userId) return
 
   try {

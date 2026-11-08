@@ -198,6 +198,18 @@ CREATE TABLE IF NOT EXISTS vaccination_records (
   FOREIGN KEY (cow_id) REFERENCES cows(id) ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS sessions (
+  id_hash TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  last_seen_at TEXT DEFAULT '',
+  expires_at TEXT NOT NULL,
+  revoked_at TEXT DEFAULT '',
+  user_agent TEXT DEFAULT '',
+  ip TEXT DEFAULT '',
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
 CREATE TABLE IF NOT EXISTS groups (
   id TEXT PRIMARY KEY,
   name TEXT DEFAULT '',
@@ -230,6 +242,10 @@ CREATE INDEX IF NOT EXISTS idx_lameness_sessions_cow_id ON lameness_sessions(cow
 
 CREATE INDEX IF NOT EXISTS idx_vaccination_records_cow_id ON vaccination_records(cow_id);
 CREATE INDEX IF NOT EXISTS idx_vaccination_records_scheduled ON vaccination_records(scheduled_date);
+
+CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id);
+CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions(expires_at);
+CREATE INDEX IF NOT EXISTS idx_sessions_revoked_at ON sessions(revoked_at);
 
 CREATE INDEX IF NOT EXISTS idx_groups_name ON groups(name);
 CREATE INDEX IF NOT EXISTS idx_groups_type ON groups(type);

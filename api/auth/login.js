@@ -43,7 +43,8 @@ export default async function handler(req, res) {
       })
     }
 
-    setSessionCookie(req, res, createSession(String(row.id)))
+    const token = await createSession(String(row.id), req)
+    setSessionCookie(req, res, token)
     return json(res, 200, {
       success: true,
       id: String(row.id),

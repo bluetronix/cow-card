@@ -9,6 +9,7 @@ export default async function handler(req, res) {
   const sessionConfigured = isSessionConfigured()
   let reachable = false
   let schemaReady = false
+  let sessionsReady = false
   let migrationsReady = false
   let error = null
 
@@ -23,6 +24,9 @@ export default async function handler(req, res) {
       const users = await db.execute("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'users'")
       schemaReady = users.rows.length > 0
 
+      const sessions = await db.execute("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'sessions'")
+      sessionsReady = sessions.rows.length > 0
+
       const migrations = await db.execute("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'schema_migrations'")
       migrationsReady = migrations.rows.length > 0
     } catch (e) {
@@ -30,13 +34,14 @@ export default async function handler(req, res) {
     }
   }
 
-  const ok = isDbConfigured() && reachable && schemaReady && sessionConfigured
+  const ok = isDbConfigured() && reachable && schemaReady && sessionsReady && sessionConfigured
   return json(res, ok ? 200 : 503, {
     ok,
     database: {
       configured: Boolean(env.url),
       reachable,
       schemaReady,
+      sessionsReady,
       migrationsReady,
     },
     auth: {

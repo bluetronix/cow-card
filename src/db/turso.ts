@@ -96,6 +96,14 @@ export async function logoutUser(): Promise<void> {
   }
 }
 
+export async function logoutAllUser(): Promise<void> {
+  try {
+    await apiFetch('/auth/logout-all', { method: 'POST' })
+  } catch {
+    // Local state is still cleared by the caller.
+  }
+}
+
 export function syncCow(cow: Cow): Promise<boolean> {
   return pushRecord('cows', cow)
 }

@@ -4,7 +4,7 @@ import { classifyError, json, requireUser } from '../_auth.js'
 export default async function handler(req, res) {
   if (req.method !== 'GET') return json(res, 405, { success: false, error: 'Method not allowed' })
 
-  const userId = requireUser(req, res)
+  const userId = await requireUser(req, res)
   if (!userId) return
 
   try {

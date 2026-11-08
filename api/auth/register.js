@@ -1,11 +1,12 @@
 import crypto from 'crypto'
 import { getDb } from '../_db.js'
 import {
+  buildSession,
   classifyError,
-  createSession,
   hashPassword,
   json,
   readJson,
+  sessionStatement,
   setSessionCookie,
 } from '../_auth.js'
 
@@ -28,14 +29,18 @@ export default async function handler(req, res) {
     const db = getDb()
     const id = body.id || crypto.randomUUID()
     const now = new Date().toISOString()
+    const session = buildSession(id, req)
 
-    await db.execute({
-      sql: `INSERT INTO users (id, username, full_name, password_hash, created_at)
-            VALUES (?, ?, ?, ?, ?)`,
-      args: [id, username, fullName, hashPassword(password), now],
-    })
+    await db.batch([
+      {
+        sql: `INSERT INTO users (id, username, full_name, password_hash, created_at)
+              VALUES (?, ?, ?, ?, ?)`,
+        args: [id, username, fullName, hashPassword(password), now],
+      },
+      sessionStatement(session),
+    ], 'write')
 
-    setSessionCookie(req, res, createSession(id))
+    setSessionCookie(req, res, session.token)
     return json(res, 200, {
       success: true,
       id,
