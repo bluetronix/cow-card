@@ -1,4 +1,5 @@
 import { createClient } from '@libsql/client'
+import { dbEnv } from '../api/_env.js'
 import { readFileSync, readdirSync } from 'fs'
 import { dirname, join, resolve } from 'path'
 import { fileURLToPath } from 'url'
@@ -148,13 +149,14 @@ async function backfill(client) {
 async function main() {
   loadEnv()
 
-  const url = process.argv[2] || process.env.TURSO_URL || process.env.VITE_TURSO_URL
+  const env = dbEnv()
+  const url = process.argv[2] || env.url
   if (!url) {
-    console.error('Missing database URL. Pass one as an argument or set TURSO_URL/VITE_TURSO_URL.')
+    console.error('Missing database URL. Pass one as an argument or set TURSO_URL.')
     process.exit(1)
   }
 
-  const token = process.env.TURSO_AUTH_TOKEN || process.env.VITE_TURSO_AUTH_TOKEN || ''
+  const token = env.token
   const client = createClient({
     url,
     ...(token && !url.startsWith('file:') ? { authToken: token } : {}),

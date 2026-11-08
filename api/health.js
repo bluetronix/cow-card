@@ -1,11 +1,12 @@
-import { dbEnv, getDb, isDbConfigured } from './_db.js'
+import { getDb } from './_db.js'
+import { dbEnv, isDbConfigured, isSessionConfigured } from './_env.js'
 import { classifyError, json } from './_auth.js'
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') return json(res, 405, { error: 'Method not allowed' })
 
   const env = dbEnv()
-  const sessionConfigured = Boolean(process.env.SESSION_SECRET || process.env.AUTH_SECRET)
+  const sessionConfigured = isSessionConfigured()
   let reachable = false
   let schemaReady = false
   let migrationsReady = false

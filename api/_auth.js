@@ -1,10 +1,11 @@
 import crypto from 'crypto'
+import { isSessionConfigured, sessionSecret } from './_env.js'
 
 const COOKIE_NAME = 'cowcard_session'
 const SESSION_MAX_AGE = 60 * 60 * 24 * 30
 
 function getSecret() {
-  const secret = process.env.SESSION_SECRET || process.env.AUTH_SECRET
+  const secret = sessionSecret()
   if (secret) return secret
   if (process.env.NODE_ENV === 'production') {
     throw new Error('SESSION_SECRET is not configured')
@@ -136,6 +137,8 @@ export function classifyError(error) {
   }
   return { status: 500, error: 'Server error' }
 }
+
+export { isSessionConfigured }
 
 export function requireUser(req, res) {
   try {

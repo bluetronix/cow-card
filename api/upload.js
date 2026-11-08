@@ -1,4 +1,5 @@
 import { json, readJson, requireUser } from './_auth.js'
+import { imgbbKey } from './_env.js'
 
 const MAX_BASE64_LENGTH = 12 * 1024 * 1024
 
@@ -17,7 +18,7 @@ export default async function handler(req, res) {
       return json(res, 413, { error: 'Image is too large' })
     }
 
-    const key = process.env.IMGBB_API_KEY
+    const key = imgbbKey()
     if (!key) return json(res, 500, { error: 'Image service is not configured' })
 
     const base64 = image.replace(/^data:image\/[a-zA-Z0-9.+-]+;base64,/, '')

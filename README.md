@@ -79,6 +79,23 @@ node scripts/migrate.js file:/tmp/cow-card.db
 - `src/components/cards/*` — card templates (single source of truth)
 - `schema.sql` / `migrations/` / `scripts/migrate.js` — database schema
 
+## Environment variables
+
+Use these exact names in `.env` and Vercel:
+
+| Variable | Used by | Notes |
+| --- | --- | --- |
+| `TURSO_URL` | API, migrations | Turso database URL |
+| `TURSO_AUTH_TOKEN` | API, migrations | Turso database token |
+| `SESSION_SECRET` | API sessions | Long random string |
+| `IMGBB_API_KEY` | API upload proxy | ImgBB API key |
+| `VITE_API_URL` | Client API base | Defaults to `/api` |
+| `VITE_APP_URL` | QR code target URL | Defaults to the current origin |
+
+`VITE_` values are embedded in the client bundle and must never contain secrets.
+
+Run `npm run check:env` to validate the local `.env` names.
+
 ## Security
 
 Turso and ImgBB credentials are server-side only (`api/` functions). The

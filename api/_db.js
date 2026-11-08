@@ -1,27 +1,9 @@
 import { createClient } from '@libsql/client'
+import { dbEnv } from './_env.js'
 
 let client = null
 
-function envValue(...names) {
-  for (const name of names) {
-    const value = process.env[name]
-    if (value && String(value).trim()) {
-      return String(value).trim().replace(/^["']|["']$/g, '')
-    }
-  }
-  return ''
-}
-
-export function dbEnv() {
-  return {
-    url: envValue('TURSO_URL', 'TURSO_DATABASE_URL', 'LIBSQL_URL', 'VITE_TURSO_URL'),
-    token: envValue('TURSO_AUTH_TOKEN', 'TURSO_TOKEN', 'LIBSQL_AUTH_TOKEN', 'VITE_TURSO_AUTH_TOKEN'),
-  }
-}
-
-export function isDbConfigured() {
-  return Boolean(dbEnv().url)
-}
+export { dbEnv, isDbConfigured, envValue } from './_env.js'
 
 export function getDb() {
   if (!client) {
