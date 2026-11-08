@@ -56,7 +56,7 @@ export async function loginUser(username: string, password: string): Promise<Aut
       full_name: String(data.full_name || ''),
     }
   } catch (e: any) {
-    if (e?.status && e.status < 500) {
+    if (e?.status) {
       return { success: false, error: e.message || 'Invalid username or password' }
     }
     return { success: false, error: formatError(e, 'Login failed. Check your connection.') }
@@ -81,7 +81,7 @@ export async function registerUser(
       full_name: String(data.full_name || fullName),
     }
   } catch (e: any) {
-    if (e?.status && e.status < 500) {
+    if (e?.status) {
       return { success: false, error: e.message || 'Registration failed' }
     }
     return { success: false, error: formatError(e, 'Registration failed. Check your connection.') }

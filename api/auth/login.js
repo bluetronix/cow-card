@@ -1,5 +1,6 @@
 import { getDb } from '../_db.js'
 import {
+  classifyError,
   createSession,
   hashPassword,
   isLegacyPasswordHash,
@@ -22,7 +23,7 @@ export default async function handler(req, res) {
     const result = await db.execute({
       sql: `SELECT id, username, full_name, password_hash
             FROM users
-            WHERE username = ? AND (deleted_at IS NULL OR deleted_at = '')`,
+            WHERE username = ?`,
       args: [String(username)],
     })
 
@@ -37,8 +38,8 @@ export default async function handler(req, res) {
 
     if (isLegacyPasswordHash(row.password_hash)) {
       await db.execute({
-        sql: 'UPDATE users SET password_hash = ?, updated_at = ? WHERE id = ?',
-        args: [hashPassword(password), new Date().toISOString(), String(row.id)],
+        sql: 'UPDATE users SET password_hash = ? WHERE id = ?',
+        args: [hashPassword(password), String(row.id)],
       })
     }
 
@@ -51,6 +52,7 @@ export default async function handler(req, res) {
     })
   } catch (error) {
     console.error('login error', error)
-    return json(res, 500, { success: false, error: 'Login failed' })
+    const { status, error: message } = classifyError(error)
+    return json(res, status, { success: false, error: message })
   }
 }

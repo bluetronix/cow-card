@@ -2,11 +2,15 @@ import crypto from 'crypto'
 
 const COOKIE_NAME = 'cowcard_session'
 const SESSION_MAX_AGE = 60 * 60 * 24 * 30
-if (process.env.NODE_ENV === 'production' && !process.env.SESSION_SECRET) {
-  throw new Error('SESSION_SECRET is required in production')
-}
 
-const SECRET = process.env.SESSION_SECRET || 'dev-only-insecure-session-secret'
+function getSecret() {
+  const secret = process.env.SESSION_SECRET || process.env.AUTH_SECRET
+  if (secret) return secret
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('SESSION_SECRET is not configured')
+  }
+  return 'dev-only-insecure-session-secret'
+}
 
 export function json(res, status, data) {
   res.statusCode = status
@@ -52,7 +56,7 @@ export function verifyPassword(password, stored) {
 }
 
 function sign(payload) {
-  return crypto.createHmac('sha256', SECRET).update(payload).digest('base64url')
+  return crypto.createHmac('sha256', getSecret()).update(payload).digest('base64url')
 }
 
 export function createSession(userId) {
@@ -108,11 +112,43 @@ export function clearSessionCookie(req, res) {
   res.setHeader('Set-Cookie', `${COOKIE_NAME}=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0${secure}`)
 }
 
+export function classifyError(error) {
+  const message = String(error?.message || error || '')
+  const lower = message.toLowerCase()
+
+  if (/unique|already exists/i.test(message)) {
+    return { status: 409, error: 'Username already exists' }
+  }
+  if (/session_secret|auth_secret|session secret/.test(lower)) {
+    return { status: 500, error: 'Server auth is not configured. Set SESSION_SECRET in Vercel.' }
+  }
+  if (/database is not configured|turso_url|turso_auth_token/.test(lower)) {
+    return { status: 500, error: 'Server database is not configured. Set TURSO_URL and TURSO_AUTH_TOKEN in Vercel.' }
+  }
+  if (/no such table|no such column|schema_migrations/.test(lower)) {
+    return { status: 500, error: 'Database schema is missing or not migrated. Run npm run db:migrate against the production database.' }
+  }
+  if (/unauthorized|401|invalid token|auth token|jwt/.test(lower)) {
+    return { status: 500, error: 'Database authentication failed. Check TURSO_AUTH_TOKEN.' }
+  }
+  if (/enotfound|econnrefused|failed to fetch|fetch failed|network|timeout/.test(lower)) {
+    return { status: 503, error: 'Cannot reach the database. Check TURSO_URL and network access.' }
+  }
+  return { status: 500, error: 'Server error' }
+}
+
 export function requireUser(req, res) {
-  const userId = readSession(req)
-  if (!userId) {
-    json(res, 401, { error: 'Unauthorized' })
+  try {
+    const userId = readSession(req)
+    if (!userId) {
+      json(res, 401, { error: 'Unauthorized' })
+      return null
+    }
+    return userId
+  } catch (error) {
+    console.error('session error', error)
+    const { status, error: message } = classifyError(error)
+    json(res, status, { error: message })
     return null
   }
-  return userId
 }

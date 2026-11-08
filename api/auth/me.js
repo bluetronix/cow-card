@@ -1,5 +1,5 @@
 import { getDb } from '../_db.js'
-import { json, requireUser } from '../_auth.js'
+import { classifyError, json, requireUser } from '../_auth.js'
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') return json(res, 405, { success: false, error: 'Method not allowed' })
@@ -12,7 +12,7 @@ export default async function handler(req, res) {
     const result = await db.execute({
       sql: `SELECT id, username, full_name
             FROM users
-            WHERE id = ? AND (deleted_at IS NULL OR deleted_at = '')`,
+            WHERE id = ?`,
       args: [userId],
     })
     if (result.rows.length === 0) return json(res, 401, { success: false, error: 'Unauthorized' })
@@ -28,6 +28,7 @@ export default async function handler(req, res) {
     })
   } catch (error) {
     console.error('me error', error)
-    return json(res, 500, { success: false, error: 'Failed to load session' })
+    const { status, error: message } = classifyError(error)
+    return json(res, status, { success: false, error: message })
   }
 }
