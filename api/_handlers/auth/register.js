@@ -75,6 +75,10 @@ export default async function handler(req, res) {
         await sendVerificationEmail(email, verification.token)
       } catch (emailError) {
         console.error('verification email error', emailError)
+        if (process.env.NODE_ENV !== 'production' || process.env.VERCEL_ENV === 'development') {
+          const base = process.env.APP_URL || process.env.VITE_APP_URL || 'http://localhost:5173'
+          console.log(`[email:fallback] verification link for ${email}: ${base}/verify-email?token=${verification.token}`)
+        }
         // Registration still succeeds; the user can resend from the account page
         // once the email domain is verified or the from address is corrected.
       }
