@@ -71,9 +71,13 @@ export default async function handler(req, res) {
         ttlMinutes: 24 * 60,
         ip: meta.ip,
       })
-      await sendVerificationEmail(email, verification.token).catch(error => {
-        console.error('verification email error', error)
-      })
+      try {
+        await sendVerificationEmail(email, verification.token)
+      } catch (emailError) {
+        console.error('verification email error', emailError)
+        // Registration still succeeds; the user can resend from the account page
+        // once the email domain is verified or the from address is corrected.
+      }
     } catch (error) {
       console.error('verification token error', error)
     }

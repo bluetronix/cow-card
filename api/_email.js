@@ -26,7 +26,17 @@ async function sendEmail({ to, subject, html, text }) {
 
   const body = await response.text()
   if (!response.ok) {
-    throw new Error(`Resend ${response.status}: ${body}`)
+    let parsed = {}
+    try { parsed = JSON.parse(body) } catch {}
+    const msg = parsed?.message || body
+    if (response.status === 403 && /domain is not verified/i.test(msg)) {
+      const domain = (from.match(/@([^>\s]+)/) || [])[1] || 'your domain'
+      throw new Error(
+        `Resend domain not verified: "${domain}" is not verified on resend.com/domains. ` +
+        `Verify the domain, or use onboarding@resend.dev for testing (only sends to your Resend account email).`
+      )
+    }
+    throw new Error(`Resend ${response.status}: ${msg}`)
   }
   return body ? JSON.parse(body) : {}
 }
