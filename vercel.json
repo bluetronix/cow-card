@@ -3,6 +3,11 @@
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "rewrites": [
+    { "source": "/api/auth/:action", "destination": "/api/auth?action=:action" },
+    { "source": "/api/account/sessions/:id", "destination": "/api/account?action=sessions&id=:id" },
+    { "source": "/api/account/:action", "destination": "/api/account?action=:action" },
+    { "source": "/api/sync/:action", "destination": "/api/sync?action=:action" },
+    { "source": "/api/cows/public/:id", "destination": "/api/publicCow?id=:id" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }
