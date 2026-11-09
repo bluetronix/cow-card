@@ -1,5 +1,5 @@
-import { json, readJson, requireUser } from './_auth.js'
-import { imgbbKey } from './_env.js'
+import { json, readJson, requireUser } from '../_auth.js'
+import { imgbbKey } from '../_env.js'
 
 const MAX_BASE64_LENGTH = 12 * 1024 * 1024
 
