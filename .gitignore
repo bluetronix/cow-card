@@ -46,3 +46,6 @@ downloads/
 *.heapsnapshot
 *.tsbuildinfo
 *.pdf
+
+# Local scratch/temp files
+.tmp/

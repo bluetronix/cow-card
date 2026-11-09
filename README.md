@@ -89,6 +89,9 @@ Use these exact names in `.env` and Vercel:
 | `TURSO_AUTH_TOKEN` | API, migrations | Turso database token |
 | `SESSION_SECRET` | API sessions | Long random string |
 | `IMGBB_API_KEY` | API upload proxy | ImgBB API key |
+| `RESEND_API_KEY` | API email | Resend API key |
+| `RESEND_FROM_EMAIL` | API email | Verified sender address |
+| `APP_URL` | API email links | Public app URL |
 | `VITE_API_URL` | Client API base | Defaults to `/api` |
 | `VITE_APP_URL` | QR code target URL | Defaults to the current origin |
 
@@ -103,6 +106,10 @@ browser talks to `/api`, never directly to the database:
 
 - `POST /api/auth/register`, `/api/auth/login`, `/api/auth/logout`, `/api/auth/logout-all`, `GET /api/auth/me`
 - `POST /api/sync/push`, `GET /api/sync/pull`
+- `GET /api/account`, `PUT /api/account/email`, `POST /api/account/change-password`
+- `GET /api/account/sessions`, `DELETE /api/account/sessions/:idHash`
+- `POST /api/account/resend-verification`
+- `POST /api/auth/verify-email`, `/api/auth/forgot-password`, `/api/auth/reset-password`
 - `GET /api/cows/public/:id` — limited public card data used by QR codes
 - `POST /api/upload` — authenticated ImgBB proxy
 

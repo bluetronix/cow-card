@@ -34,3 +34,19 @@ export function isSessionConfigured() {
 export function imgbbKey() {
   return envValue('IMGBB_API_KEY', 'IMGBB_KEY', 'VITE_IMGBB_API_KEY')
 }
+
+export function resendKey() {
+  return envValue('RESEND_API_KEY')
+}
+
+export function resendFrom() {
+  return envValue('RESEND_FROM_EMAIL')
+}
+
+export function isEmailConfigured() {
+  return Boolean(resendKey() && resendFrom())
+}
+
+export function appUrl() {
+  return envValue('APP_URL', 'VITE_APP_URL').replace(/\/$/, '')
+}

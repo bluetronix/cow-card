@@ -36,7 +36,7 @@ function isIgnorableError(statement, message) {
   if (/duplicate column name|already exists/i.test(message)) return true
   // Old databases may not yet have every column an index references.
   // The index pass is retried after the migrations add the columns.
-  if (/^CREATE INDEX/i.test(statement) && /no such column/i.test(message)) return true
+  if (/^CREATE (UNIQUE )?INDEX/i.test(statement) && /no such column/i.test(message)) return true
   return false
 }
 

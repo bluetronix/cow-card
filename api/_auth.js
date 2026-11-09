@@ -113,10 +113,19 @@ export function sessionStatement(session) {
   }
 }
 
+export async function persistSession(session) {
+  await getDb().execute(sessionStatement(session))
+}
+
 export async function createSession(userId, req) {
   const session = buildSession(userId, req)
-  await getDb().execute(sessionStatement(session))
+  await persistSession(session)
   return session.token
+}
+
+export function currentSessionHash(req) {
+  const token = sessionTokenFromRequest(req)
+  return token ? hashSessionToken(token) : ''
 }
 
 export async function readSession(req) {
@@ -170,6 +179,23 @@ export async function revokeAllSessions(userId) {
           WHERE user_id = ? AND (revoked_at IS NULL OR revoked_at = '')`,
     args: [new Date().toISOString(), String(userId)],
   })
+}
+
+export async function revokeOtherSessions(userId, keepHash) {
+  await getDb().execute({
+    sql: `UPDATE sessions SET revoked_at = ?
+          WHERE user_id = ? AND id_hash <> ? AND (revoked_at IS NULL OR revoked_at = '')`,
+    args: [new Date().toISOString(), String(userId), String(keepHash || '')],
+  })
+}
+
+export function requestMeta(req) {
+  const userAgent = String(req.headers?.['user-agent'] || '').slice(0, 300)
+  const ip = String(req.headers?.['x-forwarded-for'] || req.socket?.remoteAddress || '')
+    .split(',')[0]
+    .trim()
+    .slice(0, 100)
+  return { userAgent, ip }
 }
 
 function isSecure(req) {

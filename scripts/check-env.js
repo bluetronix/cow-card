@@ -20,7 +20,7 @@ function loadEnv() {
 }
 
 const required = ['TURSO_URL', 'TURSO_AUTH_TOKEN', 'SESSION_SECRET', 'IMGBB_API_KEY']
-const optional = ['VITE_APP_URL', 'VITE_API_URL']
+const optional = ['RESEND_API_KEY', 'RESEND_FROM_EMAIL', 'APP_URL', 'VITE_APP_URL', 'VITE_API_URL']
 const legacy = {
   TURSO_DATABASE_URL: 'TURSO_URL',
   LIBSQL_URL: 'TURSO_URL',

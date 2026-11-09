@@ -21,7 +21,7 @@ export default async function handler(req, res) {
 
     const db = getDb()
     const result = await db.execute({
-      sql: `SELECT id, username, full_name, password_hash
+      sql: `SELECT id, username, full_name, email, email_verified_at, password_hash
             FROM users
             WHERE username = ?`,
       args: [String(username)],
@@ -50,6 +50,8 @@ export default async function handler(req, res) {
       id: String(row.id),
       username: String(row.username),
       full_name: String(row.full_name || ''),
+      email: String(row.email || ''),
+      email_verified: Boolean(row.email_verified_at),
     })
   } catch (error) {
     console.error('login error', error)

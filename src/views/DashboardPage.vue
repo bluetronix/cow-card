@@ -158,6 +158,7 @@ const tiles = [
         <p class="user-greeting">Welcome, {{ fullName || currentUser }}</p>
       </div>
       <div class="header-actions">
+        <button class="btn-logout" @click="router.push('/account')">Account</button>
         <button class="btn-logout" @click="handleLogoutAll">Logout all devices</button>
         <button class="btn-logout" @click="handleLogout">Logout</button>
       </div>

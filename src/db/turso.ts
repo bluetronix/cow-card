@@ -11,7 +11,7 @@ import type {
 } from '../types'
 
 export type AuthResult =
-  | { success: true; id: string; username: string; full_name: string }
+  | { success: true; id: string; username: string; full_name: string; email?: string; email_verified?: boolean }
   | { success: false; error: string }
 
 export function isConnected(): boolean {
@@ -54,6 +54,8 @@ export async function loginUser(username: string, password: string): Promise<Aut
       id: String(data.id),
       username: String(data.username),
       full_name: String(data.full_name || ''),
+      email: String(data.email || ''),
+      email_verified: Boolean(data.email_verified),
     }
   } catch (e: any) {
     if (e?.status) {
@@ -68,17 +70,20 @@ export async function registerUser(
   username: string,
   password: string,
   fullName: string = '',
+  email: string = '',
 ): Promise<AuthResult> {
   try {
     const data = await apiFetch('/auth/register', {
       method: 'POST',
-      body: JSON.stringify({ id, username, password, full_name: fullName }),
+      body: JSON.stringify({ id, username, password, full_name: fullName, email }),
     })
     return {
       success: true,
       id: String(data.id || id),
       username: String(data.username || username),
       full_name: String(data.full_name || fullName),
+      email: String(data.email || email),
+      email_verified: Boolean(data.email_verified),
     }
   } catch (e: any) {
     if (e?.status) {

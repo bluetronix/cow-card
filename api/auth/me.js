@@ -10,7 +10,7 @@ export default async function handler(req, res) {
   try {
     const db = getDb()
     const result = await db.execute({
-      sql: `SELECT id, username, full_name
+      sql: `SELECT id, username, full_name, email, email_verified_at
             FROM users
             WHERE id = ?`,
       args: [userId],
@@ -24,6 +24,8 @@ export default async function handler(req, res) {
         id: String(row.id),
         username: String(row.username),
         full_name: String(row.full_name || ''),
+        email: String(row.email || ''),
+        email_verified: Boolean(row.email_verified_at),
       },
     })
   } catch (error) {

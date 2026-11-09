@@ -11,6 +11,7 @@ const { login } = useAuth()
 const isRegister = ref(false)
 const username = ref('')
 const fullName = ref('')
+const email = ref('')
 const password = ref('')
 const confirmPassword = ref('')
 const error = ref('')
@@ -20,6 +21,14 @@ async function handleSubmit() {
   error.value = ''
   if (!username.value || !password.value) {
     error.value = 'Please fill all fields'
+    return
+  }
+  if (isRegister.value && !email.value.trim()) {
+    error.value = 'Email is required'
+    return
+  }
+  if (isRegister.value && password.value.length < 8) {
+    error.value = 'Password must be at least 8 characters'
     return
   }
   if (isRegister.value && password.value !== confirmPassword.value) {
@@ -34,7 +43,8 @@ async function handleSubmit() {
         crypto.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
         username.value,
         password.value,
-        fullName.value
+        fullName.value,
+        email.value.trim()
       )
       if (!result.success) {
         error.value = result.error
@@ -87,6 +97,17 @@ async function handleSubmit() {
             placeholder="Enter full name"
           />
         </div>
+
+        <div v-if="isRegister" class="form-group">
+          <label>Email</label>
+          <input
+            v-model="email"
+            type="email"
+            placeholder="you@example.com"
+            autocomplete="email"
+            required
+          />
+        </div>
         
         <div class="form-group">
           <label>Password</label>
@@ -109,6 +130,15 @@ async function handleSubmit() {
         </div>
 
         <p v-if="error" class="error-msg">{{ error }}</p>
+
+        <button
+          v-if="!isRegister"
+          type="button"
+          class="forgot-link"
+          @click="router.push('/forgot-password')"
+        >
+          Forgot password?
+        </button>
 
         <button type="submit" class="btn-primary" :disabled="loading">
           {{ loading ? 'Please wait...' : isRegister ? 'Register' : 'Sign In' }}
@@ -225,6 +255,16 @@ async function handleSubmit() {
   margin-top: 20px;
   color: #666;
   font-size: 0.9rem;
+}
+
+.forgot-link {
+  background: none;
+  border: none;
+  color: #1a5276;
+  font-size: 0.85rem;
+  cursor: pointer;
+  align-self: flex-end;
+  padding: 0;
 }
 
 .link-btn {

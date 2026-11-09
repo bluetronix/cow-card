@@ -1,5 +1,5 @@
 import { getDb } from './_db.js'
-import { dbEnv, isDbConfigured, isSessionConfigured } from './_env.js'
+import { appUrl, dbEnv, isDbConfigured, isEmailConfigured, isSessionConfigured } from './_env.js'
 import { classifyError, json } from './_auth.js'
 
 export default async function handler(req, res) {
@@ -10,6 +10,7 @@ export default async function handler(req, res) {
   let reachable = false
   let schemaReady = false
   let sessionsReady = false
+  let accountTablesReady = false
   let migrationsReady = false
   let error = null
 
@@ -27,6 +28,11 @@ export default async function handler(req, res) {
       const sessions = await db.execute("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'sessions'")
       sessionsReady = sessions.rows.length > 0
 
+      const accountTables = await db.execute(
+        "SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('email_verifications','password_resets','auth_rate_limits')"
+      )
+      accountTablesReady = accountTables.rows.length === 3
+
       const migrations = await db.execute("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'schema_migrations'")
       migrationsReady = migrations.rows.length > 0
     } catch (e) {
@@ -34,7 +40,7 @@ export default async function handler(req, res) {
     }
   }
 
-  const ok = isDbConfigured() && reachable && schemaReady && sessionsReady && sessionConfigured
+  const ok = isDbConfigured() && reachable && schemaReady && sessionsReady && accountTablesReady && sessionConfigured
   return json(res, ok ? 200 : 503, {
     ok,
     database: {
@@ -42,10 +48,15 @@ export default async function handler(req, res) {
       reachable,
       schemaReady,
       sessionsReady,
+      accountTablesReady,
       migrationsReady,
     },
     auth: {
       sessionConfigured,
+    },
+    email: {
+      configured: isEmailConfigured(),
+      appUrlConfigured: Boolean(appUrl()),
     },
     error,
     timestamp: new Date().toISOString(),

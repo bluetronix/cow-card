@@ -111,6 +111,27 @@ const router = createRouter({
       meta: { requiresAuth: true }
     },
     {
+      path: '/account',
+      name: 'Account',
+      component: () => import('../views/AccountPage.vue'),
+      meta: { requiresAuth: true }
+    },
+    {
+      path: '/forgot-password',
+      name: 'ForgotPassword',
+      component: () => import('../views/ForgotPasswordPage.vue')
+    },
+    {
+      path: '/reset-password',
+      name: 'ResetPassword',
+      component: () => import('../views/ResetPasswordPage.vue')
+    },
+    {
+      path: '/verify-email',
+      name: 'VerifyEmail',
+      component: () => import('../views/VerifyEmailPage.vue')
+    },
+    {
       path: '/:pathMatch(.*)*',
       name: 'NotFound',
       component: () => import('../views/NotFoundPage.vue')
