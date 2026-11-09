@@ -1,4 +1,4 @@
-import { getDb } from '../_db.js'
+import { getDb } from '../../_db.js'
 import {
   classifyError,
   createSession,
@@ -8,7 +8,7 @@ import {
   readJson,
   setSessionCookie,
   verifyPassword,
-} from '../_auth.js'
+} from '../../_auth.js'
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return json(res, 405, { success: false, error: 'Method not allowed' })

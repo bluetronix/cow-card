@@ -1,6 +1,6 @@
-import { getDb } from '../_db.js'
-import { getQuery, json, requireUser } from '../_auth.js'
-import { TABLES } from '../_tables.js'
+import { getDb } from '../../_db.js'
+import { getQuery, json, requireUser } from '../../_auth.js'
+import { TABLES } from '../../_tables.js'
 
 const TABLE_NAMES = {
   cows: 'cows',

@@ -1,4 +1,4 @@
-import { classifyError, clearSessionCookie, json, requireUser, revokeAllSessions } from '../_auth.js'
+import { classifyError, clearSessionCookie, json, requireUser, revokeAllSessions } from '../../_auth.js'
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return json(res, 405, { success: false, error: 'Method not allowed' })

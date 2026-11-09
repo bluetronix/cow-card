@@ -1,5 +1,5 @@
-import { getDb } from '../../_db.js'
-import { classifyError, currentSessionHash, json, requireUser } from '../../_auth.js'
+import { getDb } from '../../../_db.js'
+import { classifyError, currentSessionHash, json, requireUser } from '../../../_auth.js'
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') return json(res, 405, { success: false, error: 'Method not allowed' })

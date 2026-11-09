@@ -1,8 +1,8 @@
-import { getDb } from '../_db.js'
-import { classifyError, json, readJson, requestMeta } from '../_auth.js'
-import { issueToken } from '../_tokens.js'
-import { rateLimit } from '../_rateLimit.js'
-import { sendPasswordResetEmail } from '../_email.js'
+import { getDb } from '../../_db.js'
+import { classifyError, json, readJson, requestMeta } from '../../_auth.js'
+import { issueToken } from '../../_tokens.js'
+import { rateLimit } from '../../_rateLimit.js'
+import { sendPasswordResetEmail } from '../../_email.js'
 
 const GENERIC = 'If an account exists, a reset link was sent.'
 

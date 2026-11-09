@@ -1,8 +1,8 @@
-import { getDb } from '../_db.js'
-import { classifyError, hashPassword, json, readJson, requestMeta, revokeAllSessions } from '../_auth.js'
-import { consumeToken } from '../_tokens.js'
-import { rateLimit } from '../_rateLimit.js'
-import { sendPasswordChangedEmail } from '../_email.js'
+import { getDb } from '../../_db.js'
+import { classifyError, hashPassword, json, readJson, requestMeta, revokeAllSessions } from '../../_auth.js'
+import { consumeToken } from '../../_tokens.js'
+import { rateLimit } from '../../_rateLimit.js'
+import { sendPasswordChangedEmail } from '../../_email.js'
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return json(res, 405, { success: false, error: 'Method not allowed' })

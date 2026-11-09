@@ -1,8 +1,8 @@
-import { getDb } from '../_db.js'
-import { classifyError, json, readJson, requestMeta, requireUser } from '../_auth.js'
-import { issueToken } from '../_tokens.js'
-import { rateLimit } from '../_rateLimit.js'
-import { sendVerificationEmail } from '../_email.js'
+import { getDb } from '../../_db.js'
+import { classifyError, json, readJson, requestMeta, requireUser } from '../../_auth.js'
+import { issueToken } from '../../_tokens.js'
+import { rateLimit } from '../../_rateLimit.js'
+import { sendVerificationEmail } from '../../_email.js'
 
 export default async function handler(req, res) {
   if (req.method !== 'PUT') return json(res, 405, { success: false, error: 'Method not allowed' })

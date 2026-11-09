@@ -1,5 +1,5 @@
 import crypto from 'crypto'
-import { getDb } from '../_db.js'
+import { getDb } from '../../_db.js'
 import {
   buildSession,
   classifyError,
@@ -9,10 +9,10 @@ import {
   requestMeta,
   sessionStatement,
   setSessionCookie,
-} from '../_auth.js'
-import { issueToken } from '../_tokens.js'
-import { rateLimit } from '../_rateLimit.js'
-import { sendVerificationEmail } from '../_email.js'
+} from '../../_auth.js'
+import { issueToken } from '../../_tokens.js'
+import { rateLimit } from '../../_rateLimit.js'
+import { sendVerificationEmail } from '../../_email.js'
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return json(res, 405, { success: false, error: 'Method not allowed' })

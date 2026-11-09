@@ -1,6 +1,6 @@
-import { getDb } from '../_db.js'
-import { classifyError, json, readJson } from '../_auth.js'
-import { consumeToken } from '../_tokens.js'
+import { getDb } from '../../_db.js'
+import { classifyError, json, readJson } from '../../_auth.js'
+import { consumeToken } from '../../_tokens.js'
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return json(res, 405, { success: false, error: 'Method not allowed' })
